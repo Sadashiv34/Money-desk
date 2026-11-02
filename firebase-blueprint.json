@@ -1,0 +1,122 @@
+{
+  "entities": {
+    "account": {
+      "title": "Account",
+      "description": "Financial account (bank or cash in hand)",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "type": { "type": "string", "enum": ["bank", "cash"] },
+        "openingBalance": { "type": "number" },
+        "openingDate": { "type": "string" },
+        "isActive": { "type": "boolean" },
+        "accountNumber": { "type": "string", "maxLength": 50 },
+        "userId": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "type", "openingBalance", "openingDate", "isActive", "userId"]
+    },
+    "incomeSource": {
+      "title": "Income Source",
+      "description": "Configurable income revenue channel",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "category": { "type": "string", "maxLength": 100 },
+        "associatedBusiness": { "type": "string", "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 255 },
+        "isActive": { "type": "boolean" },
+        "userId": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "category", "isActive", "userId"]
+    },
+    "expenseCategory": {
+      "title": "Expense Category",
+      "description": "Classification tag for operating expenses",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 255 },
+        "isActive": { "type": "boolean" },
+        "userId": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "isActive", "userId"]
+    },
+    "investment": {
+      "title": "Investment",
+      "description": "Capital investment, rental asset, equipment, or loan",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string", "maxLength": 150 },
+        "type": { "type": "string", "enum": ["rental_asset", "business", "loan", "equipment", "profit_sharing", "other"] },
+        "initialPrincipal": { "type": "number" },
+        "date": { "type": "string" },
+        "fundingAccountId": { "type": "string" },
+        "purpose": { "type": "string", "maxLength": 255 },
+        "associatedEntity": { "type": "string", "maxLength": 100 },
+        "expectedReturnMethod": { "type": "string", "maxLength": 100 },
+        "expectedRateOrProfit": { "type": "string", "maxLength": 100 },
+        "expectedFrequency": { "type": "string", "maxLength": 50 },
+        "expectedDuration": { "type": "string", "maxLength": 50 },
+        "status": { "type": "string", "enum": ["active", "partially_returned", "fully_returned", "closed"] },
+        "notes": { "type": "string", "maxLength": 500 },
+        "userId": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "type", "initialPrincipal", "date", "fundingAccountId", "status", "userId"]
+    },
+    "transaction": {
+      "title": "Transaction",
+      "description": "Financial ledger entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "type": { "type": "string", "enum": ["income", "expense", "investment_contribution", "investment_return", "investment_expense", "transfer_internal", "transfer_external"] },
+        "amount": { "type": "number" },
+        "accountId": { "type": "string" },
+        "toAccountId": { "type": "string" },
+        "sourceId": { "type": "string" },
+        "categoryId": { "type": "string" },
+        "investmentId": { "type": "string" },
+        "principalReturned": { "type": "number" },
+        "interestOrProfitReceived": { "type": "number" },
+        "notes": { "type": "string", "maxLength": 500 },
+        "referenceDoc": { "type": "string", "maxLength": 200 },
+        "associatedBusiness": { "type": "string", "maxLength": 100 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "userId": { "type": "string" }
+      },
+      "required": ["id", "date", "type", "amount", "accountId", "createdAt", "userId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/accounts/{accountId}": {
+      "schema": { "$ref": "#/entities/account" },
+      "description": "User's bank and cash accounts"
+    },
+    "/users/{userId}/incomeSources/{sourceId}": {
+      "schema": { "$ref": "#/entities/incomeSource" },
+      "description": "User's configurable income streams"
+    },
+    "/users/{userId}/expenseCategories/{categoryId}": {
+      "schema": { "$ref": "#/entities/expenseCategory" },
+      "description": "User's expense classification categories"
+    },
+    "/users/{userId}/investments/{investmentId}": {
+      "schema": { "$ref": "#/entities/investment" },
+      "description": "User's active and historical investments"
+    },
+    "/users/{userId}/transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/transaction" },
+      "description": "User's financial transaction audit ledger"
+    }
+  }
+}

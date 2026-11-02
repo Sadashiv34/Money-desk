@@ -1,0 +1,6 @@
+{
+  "name": "MoneyDesk - Personal Money & Investment Intelligence",
+  "description": "Minimalist, executive-grade personal financial tracking and investment intelligence system for rental assets, software ventures, and multi-account cash flows.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

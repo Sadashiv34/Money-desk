@@ -1,0 +1,1038 @@
+# Product Development Prompt: Personal Money Tracker & Investment Intelligence Dashboard
+
+## 1. Project Overview
+
+Build a minimalist, premium-looking financial tracking web application that helps me understand exactly where my money goes, where it comes from, how much I have invested, how much has returned, and which income sources and investments perform best.
+
+This application is not just an expense tracker. It is a personal financial decision-making system.
+
+I may earn money through several sources, including:
+- Rental businesses, such as renting bikes.
+- Software development and software businesses.
+- Interest received from money lent or invested.
+- Profits received from businesses.
+- Other businesses and side projects.
+- Other manually configurable income sources.
+
+I may invest money in:
+- Rental bikes, vehicles, monitors, speakers, equipment, and other assets.
+- Existing businesses.
+- New businesses that I start.
+- Other businesses in which I provide capital.
+- Investments that provide fixed interest, a percentage of profits, irregular returns, or other financial benefits.
+
+I also want to track business expenses, money held in a business bank account, cash in hand, investment principal returned, interest earned, and transfers to accounts outside this tracking system.
+
+The primary objective is to make entering financial transactions simple enough that I can consistently record them and understand my financial position without maintaining complicated spreadsheets.
+
+## 2. Design Requirements
+
+Use the attached dashboard sketch as the initial layout reference.
+
+The design must be:
+- Minimalist and premium.
+- Easy to understand for a non-accountant.
+- Responsive across desktop, tablet, and mobile.
+- Built around clear numbers and straightforward actions.
+- Fast for everyday data entry.
+- Consistent in spacing, alignment, typography, and component design.
+
+Use a dark theme inspired by the reference image, with a charcoal background, subtle borders, light text, and restrained accent colors.
+
+Avoid unnecessary charts, excessive cards, distracting gradients, decorative animations, and complicated accounting terminology.
+
+Display Indian currency using ₹ and the Indian numbering system, such as ₹1,25,000. Use readable formatting for large values.
+
+The dashboard should prioritize financial clarity over decorative design.
+
+## 3. Main Dashboard
+
+Initially, display the following financial summary cards:
+
+1. My Money
+2. Investments
+3. In Bank
+4. In Cash
+5. Earnings
+6. Expenses
+
+Use the same visual structure as the supplied sketch, with My Money at the top, Investments and In Bank beneath it, and Earnings and Expenses in the next row. Add In Cash in a balanced position without making the dashboard crowded.
+
+Add an Insights button and a prominent plus (+) button near the bottom-right or in an equally accessible location.
+
+### A. My Money
+
+This represents my total tracked financial position, not simply the amount of money in my bank account.
+
+Use this calculation:
+
+**My Money = Outstanding Investment Principal + Tracked Bank Balances + Cash in Hand**
+
+For example:
+
+- Outstanding investments: ₹80,000
+- Business bank balance: ₹35,000
+- Cash in hand: ₹5,000
+
+My Money = ₹1,20,000.
+
+When I record a new investment of ₹10,000 from my business bank account:
+
+- Outstanding investments increase by ₹10,000.
+- Bank balance decreases by ₹10,000.
+- My Money remains unchanged.
+
+When I receive ₹300 of investment principal and ₹200 of interest:
+
+- Outstanding investment principal decreases by ₹300.
+- Bank or cash balance increases by ₹500.
+- Earnings increase by ₹200.
+- My Money increases by ₹200.
+
+When I record an expense of ₹1,000 paid from my tracked bank account, My Money decreases by ₹1,000.
+
+Do not add earnings to My Money a second time when those earnings have already been received into a tracked bank or cash account.
+
+Investment principal repayments are not earnings. They are the return of previously invested capital.
+
+Clearly label this figure as the total tracked financial position, or simply My Money, and allow me to view its components.
+
+### B. Investments
+
+Display the total outstanding investment principal.
+
+When I invest ₹50,000 in a rental bike:
+- Investments increase by ₹50,000.
+- The funding bank or cash balance decreases by ₹50,000.
+- The transaction is recorded against the bike investment.
+- The investment retains its own history, expected returns, actual returns, and performance.
+
+When principal is returned, reduce the outstanding investment principal by the amount returned.
+
+Do not permanently increase or decrease the investment principal merely because its market value, estimated value, or profitability changes. Record any such valuations separately if this feature is supported later.
+
+Show a simple summary of my active investments and provide access to the complete investment register.
+
+### C. In Bank
+
+Display the combined balance of the tracked bank accounts, with an option to view individual accounts.
+
+Support multiple bank accounts, including a business bank account and any additional account that I choose to track.
+
+When recording transactions, let me select the account that receives or pays the money.
+
+Bank balances should be calculated from the opening balance and all applicable recorded transactions.
+
+If I transfer money from my tracked business bank account to my personal bank account, which is not tracked in this application, record it as a transfer out. The tracked bank balance and My Money must decrease, but it must not automatically become a business expense.
+
+If I transfer money between two accounts that are both tracked, reduce the source account and increase the destination account by the same amount. Do not change My Money, earnings, expenses, or investment balances.
+
+### D. In Cash
+
+Add a dedicated In Cash card for money physically held in hand.
+
+I must be able to record investment repayments, interest receipts, earnings, and expense payments made in cash.
+
+For example, if a customer returns ₹500 in cash, increase the cash balance by ₹500, subject to how that payment is classified.
+
+Never assume that every receipt is deposited into the bank.
+
+### E. Earnings
+
+Display total earnings for the selected period, with a way to compare them against previous periods.
+
+Earnings must represent income actually received and recorded, excluding investment principal repayments and transfers between my own tracked accounts.
+
+Provide separate views for:
+- Income by source.
+- Income by month.
+- Interest income.
+- Business profits received.
+- Other income.
+- Highest-performing income sources.
+
+For example, I should be able to discover whether software work, bike rentals, business profits, or interest generated the most income during a particular month.
+
+### F. Expenses
+
+Display total expenses for the selected period.
+
+Show the expense breakdown by category, month, payment account, and purpose.
+
+Distinguish ordinary operating expenses from money invested in a business, purchases recorded as investment assets, principal repayments, and transfers to external accounts.
+
+Do not classify everything that leaves the bank account as an expense.
+
+## 4. Plus Button: Quick Transaction Entry
+
+When I click the plus (+) button, open a small, clean menu containing exactly three primary options:
+
+1. Earnings
+2. Expenses
+3. Investments
+
+Each option must open its corresponding transaction form.
+
+Keep these forms short and easy to complete. Use dropdowns for predefined values, with an option to add new entries when needed.
+
+The forms must validate amounts, require the relevant transaction details, and save transactions without requiring unnecessary navigation.
+
+After saving, update the dashboard and relevant financial records immediately.
+
+Include clear success and error states.
+
+## 5. Earnings Page
+
+### A. Earnings Entry Form
+
+When I select Earnings, show a transaction form containing the following fields:
+
+- Amount received.
+- Source.
+- Date received.
+- Payment destination: bank account or cash in hand.
+- Optional description or notes.
+- Optional reference or supporting document.
+
+The source field must be a dropdown. I should not need to type the source name repeatedly.
+
+Examples of sources:
+- Bike Rental Business.
+- Software Business.
+- Business Interest.
+- Investment Interest.
+- Business Profit.
+- Other Business Income.
+- Other Income.
+
+These examples are initial suggestions, not a permanent, hardcoded list.
+
+### B. Source Entries Management
+
+Add a button called **Manage Sources** or **Source Entries** on the Earnings page.
+
+When I click it, open a source management screen where I can create, edit, activate, deactivate, and organize my income sources.
+
+Each source should support:
+- Source name.
+- Source category.
+- Optional description.
+- Optional associated business or investment.
+- Active or inactive status.
+
+Example:
+
+| Source | Category |
+|---|---|
+| Bike Rentals | Rental Business |
+| Software Development | Business Income |
+| Investment Interest | Interest Income |
+| Business Profit Share | Business Profit |
+| Other Income | Other |
+
+Allow me to add any number of custom sources.
+
+When I create a source, immediately make it available in the Earnings dropdown.
+
+Existing transactions must preserve their historical source even if that source is later renamed or deactivated. Deactivating a source must not delete the transaction history associated with it.
+
+### C. Earnings Page Insights
+
+Provide:
+- Total earnings this month.
+- Total earnings for a selected period.
+- Month-over-month earnings comparison.
+- Highest-earning source.
+- Monthly earnings trend.
+- Interest income versus other income.
+- Earnings by business.
+
+For any selected source, show the transactions that contribute to its total.
+
+Calculate earnings using transactions actually recorded, and clearly distinguish received income from expected or unpaid income.
+
+## 6. Expenses Page
+
+### A. Expense Entry Form
+
+When I select Expenses, open a form with these fields:
+
+- Amount paid.
+- Purpose or expense category.
+- Date paid.
+- Payment source: bank account or cash in hand.
+- Optional business or project.
+- Optional description.
+- Optional receipt or document.
+
+The expense-purpose field must include a dropdown, along with an option to create custom categories.
+
+Initial expense categories should include:
+- Rent.
+- Electricity and utilities.
+- Internet and phone.
+- Travel and fuel.
+- Food and refreshments.
+- Office expenses.
+- Equipment and maintenance.
+- Software and subscriptions.
+- Employee or contractor payments.
+- Marketing.
+- Taxes and statutory payments.
+- Bank charges.
+- Other Expenses.
+
+Allow custom categories because my actual expenses may differ from these examples.
+
+### B. Manual Category Entry
+
+Include an option to add a new expense category directly from the expense form.
+
+For example, if I start a new business and need a category that does not exist, I should not have to leave the form and navigate through several settings.
+
+Once saved, the category must be available for future transactions.
+
+### C. Expense Details and Insights
+
+Display:
+- Total expenses this month.
+- Expenses by category.
+- Expenses by business.
+- Expenses by bank or cash.
+- Largest expense categories.
+- Monthly expense trends.
+- Comparison with the previous month.
+- Recent expenses.
+
+Allow filtering by date range, category, payment account, and associated business.
+
+Display the total for the filtered transactions and allow me to inspect the individual records.
+
+Do not mix investment contributions with ordinary expenses. A qualifying business asset purchase or capital contribution must be recorded using the appropriate investment workflow.
+
+## 7. Investments Page
+
+This is a critical section of the application.
+
+I may invest in multiple businesses, purchase physical assets, lend money to another person or business, or fund a new business. I need to understand how much money has been invested, how much principal has been returned, how much profit or interest has been received, and how each investment has performed.
+
+### A. Create an Investment
+
+When I select Investments from the plus menu, open a form with the following fields:
+
+- Investment name.
+- Investment type.
+- Initial investment amount.
+- Investment date.
+- Funding account: bank or cash.
+- Investment purpose or reason.
+- Associated business, project, person, or asset, if applicable.
+- Expected return method.
+- Expected interest rate or percentage of profit, if applicable.
+- Expected return frequency, if applicable.
+- Expected duration or maturity date, if applicable.
+- Notes.
+- Optional supporting documents.
+
+Investment types should include:
+- Rental asset.
+- Business investment.
+- New business.
+- Loan or money advanced to another person or business.
+- Equipment or productive asset.
+- Profit-sharing arrangement.
+- Other Investment.
+
+These are starting categories and must be configurable.
+
+Example:
+
+Investment: Bike Rental Asset  
+Initial investment: ₹50,000  
+Investment date: 1 October  
+Purpose: Purchase a bike for rental income  
+Expected return method: Rental income  
+Funding source: Business bank account
+
+After saving:
+- Create a separate investment record.
+- Increase outstanding investment principal by ₹50,000.
+- Decrease the selected funding account by ₹50,000.
+- Associate this investment with future income and repayments.
+- Make the investment available in investment reports.
+
+The investment contribution itself must not be treated as an expense or earnings transaction.
+
+### B. Investment Register
+
+Create a page that lists all investments.
+
+For each investment, show the most important information:
+
+| Field | Meaning |
+|---|---|
+| Investment Name | The business, asset, loan, or investment |
+| Initial Principal | The original amount invested |
+| Principal Returned | The amount of original capital recovered |
+| Outstanding Principal | The remaining unreturned capital |
+| Interest or Profit Received | Income actually received |
+| Total Cash Returned | Principal returned plus recorded income returned |
+| Net Realized Gain | Income received minus expenses directly attributed to the investment |
+| Status | Active, Partially Returned, Fully Returned, or Closed |
+
+Use the following calculations:
+
+**Outstanding Principal = Initial Principal + Additional Capital Contributions − Principal Repayments**
+
+**Total Cash Returned = Principal Repayments + Investment Income Received**
+
+**Net Realized Gain = Income Received − Directly Attributed Investment Expenses**
+
+For investments funded through multiple contributions or returned in several installments, calculate the totals from their transaction records.
+
+Track investment expenses separately where necessary. Avoid automatically treating the original investment principal as a loss.
+
+If an investment is closed, preserve all of its history.
+
+### C. Investment Details Page
+
+When I click an investment, display its complete financial record.
+
+Include:
+- Initial investment amount.
+- Additional capital contributions.
+- Total principal returned.
+- Outstanding principal.
+- Total interest or profit received.
+- Direct expenses.
+- Net realized gain.
+- Investment start date.
+- Duration so far.
+- Expected return information, if provided.
+- All related transactions.
+- Monthly returns.
+- Notes explaining why the investment was made.
+
+Include a clear **Record Return** action.
+
+The investment details page should make it possible to understand how the investment has performed without manually calculating figures.
+
+## 8. Investment Repayment and Income Logic
+
+Implement a dedicated repayment workflow that separates principal repayment from interest or profit income.
+
+Example:
+
+I initially invest ₹1,00,000 in a business.
+
+After some time, the business pays me ₹500:
+- ₹300 is a return of principal.
+- ₹200 is interest or profit.
+
+I must be able to record both components in the same repayment entry.
+
+The form should contain:
+- Related investment.
+- Total amount received.
+- Principal returned.
+- Interest or profit received.
+- Date received.
+- Receiving account: bank or cash in hand.
+- Optional notes.
+
+The application should validate that the principal and income components add up to the total amount received.
+
+For this example, record:
+
+- Total received: ₹500.
+- Principal returned: ₹300.
+- Interest income: ₹200.
+
+After saving:
+- Outstanding principal decreases from ₹1,00,000 to ₹99,700.
+- The selected bank or cash balance increases by ₹500.
+- Earnings increase by ₹200.
+- Investment income increases by ₹200.
+- Principal returned increases by ₹300.
+- My Money increases by ₹200.
+
+**The ₹300 principal repayment must never be counted as earnings.**
+
+Do not automatically mark the investment as fully returned unless its outstanding principal has reached zero.
+
+If the outstanding principal is insufficient to cover the repayment amount, prevent the transaction or require an explicit correction. Never allow the principal balance to become negative silently.
+
+Support partial principal repayments, multiple interest receipts, profit-sharing returns, and irregular payment schedules.
+
+### Important distinction
+
+A bike that produces rental income is not the same as an investment that returns capital.
+
+For a rental bike:
+- Record the bike's acquisition as an investment or asset purchase.
+- Record rental payments as income.
+- Record associated operating costs separately.
+- Reduce investment principal only when capital is genuinely returned or recovered through a specifically recorded transaction.
+
+Do not assume that all income generated by an asset is principal repayment.
+
+## 9. Investment Profitability and Performance Insights
+
+Create investment-specific insights to help me make better financial decisions.
+
+The insights page should answer questions such as:
+
+- How much money have I invested in total?
+- How much original principal have I recovered?
+- How much principal is still outstanding?
+- How much interest or profit have I actually received?
+- Which investment generates the highest income?
+- Which investments are earning regular income?
+- Which investments have returned the most principal?
+- Which investments have not generated any recorded income?
+- How long have I held each investment?
+- What has been the actual return over a selected period?
+- How much have I earned from a particular investment each month?
+- Which investments have the highest direct expenses?
+- Which investments are performing better than others?
+
+Allow me to select an investment and a date range.
+
+For a specific bike, for example, show:
+
+Bike Investment Summary
+- Initial investment: ₹50,000.
+- Principal returned: ₹0.
+- Outstanding investment principal: ₹50,000.
+- Rental income received: ₹6,000.
+- Direct expenses: ₹1,000.
+- Net realized gain: ₹5,000.
+
+These are illustrative values; the application must calculate real figures from recorded transactions.
+
+Display principal recovery separately from income generation. Do not label principal repayment as investment profit.
+
+Where investment duration and the appropriate data are available, calculate actual return metrics over the selected period. Identify the calculation method and avoid presenting incomplete or estimated returns as guaranteed returns.
+
+Distinguish realized results from projections. Expected interest or future profit must never be included in actual earnings until it is received and recorded.
+
+## 10. Account and Money Movement Rules
+
+The application must maintain consistent balances regardless of where money is paid or received.
+
+### Case A: New investment funded from the bank
+
+I invest ₹10,000 from my tracked business bank account.
+
+- Bank: −₹10,000.
+- Outstanding investments: +₹10,000.
+- My Money: no change.
+- Earnings: no change.
+- Expenses: no change.
+
+### Case B: Principal and interest received in the bank
+
+I receive ₹500, consisting of ₹300 principal and ₹200 interest.
+
+- Bank: +₹500.
+- Outstanding investments: −₹300.
+- Earnings: +₹200.
+- My Money: +₹200.
+
+### Case C: Principal and interest received in cash
+
+Use the same accounting classification as Case B, but increase cash in hand rather than the bank balance.
+
+### Case D: Operating expense paid from the bank
+
+I pay ₹1,000 for an ordinary business expense.
+
+- Bank: −₹1,000.
+- Expenses: +₹1,000.
+- My Money: −₹1,000.
+
+### Case E: Operating expense paid in cash
+
+- Cash in hand: −₹1,000.
+- Expenses: +₹1,000.
+- My Money: −₹1,000.
+
+### Case F: Money transferred to an untracked personal bank account
+
+I transfer ₹5,000 from my business bank account to my personal bank account, which is not tracked within the application.
+
+- Business bank: −₹5,000.
+- My Money: −₹5,000.
+- Earnings: no change.
+- Expenses: no change.
+
+Classify it as an external transfer or owner withdrawal, depending on the transaction's purpose.
+
+### Case G: Transfer between tracked accounts
+
+I transfer ₹5,000 from one tracked bank account to another tracked bank account.
+
+- Source account: −₹5,000.
+- Destination account: +₹5,000.
+- My Money: no change.
+- Earnings and expenses: no change.
+
+### General rule
+
+Every financial transaction must update the appropriate account and financial category exactly once. Never count a single transaction twice.
+
+## 11. Insights Dashboard
+
+Add a dedicated Insights page accessible from the main dashboard.
+
+Its purpose is to convert financial records into useful decisions, not merely display charts.
+
+Allow the user to select:
+- This month.
+- Last month.
+- Last three months.
+- Last six months.
+- This financial year.
+- A custom date range.
+
+Build the Insights page with simple summaries and optional charts.
+
+### A. Overall Financial Position
+
+Show:
+- My Money.
+- Total outstanding investment principal.
+- Total tracked bank balances.
+- Cash in hand.
+- Total earnings in the selected period.
+- Total expenses in the selected period.
+- Net operating cash flow, with the calculation clearly defined.
+
+Keep the current financial position separate from period-based earnings and expenses.
+
+### B. Earnings Insights
+
+Show:
+- Monthly earnings.
+- Earnings by source.
+- Highest-earning source.
+- Income from each business.
+- Interest income.
+- Business profit received.
+- Changes compared with previous periods.
+
+For example:
+
+"This month, software income was ₹15,000 and bike rental income was ₹8,000."
+
+Generate these observations only from saved transaction data.
+
+### C. Expense Insights
+
+Show:
+- Total expenses for each month.
+- Expenses by category.
+- Highest expense category.
+- Monthly expense trends.
+- Business-specific expenses.
+- Cash versus bank payments.
+
+Allow me to click a category to inspect the underlying transactions.
+
+### D. Investment Insights
+
+Show:
+- Total capital initially invested.
+- Total additional capital contributed.
+- Total principal recovered.
+- Outstanding investment principal.
+- Interest and profit actually received.
+- Net realized gain.
+- Investment income by business or asset.
+- Month-wise principal recovery.
+- Month-wise interest and profit.
+- Investments with no recorded returns.
+- Investment duration and expected versus actual performance, where supported.
+
+For example:
+
+"I invested ₹50,000 in Bike A. It generated ₹6,000 in recorded rental income, incurred ₹1,000 in direct expenses, and produced ₹5,000 in net realized gain during the selected period. The original ₹50,000 investment has not been recorded as returned."
+
+The insight must not claim that the investment itself has been fully recovered simply because it generated income.
+
+### E. Bank and Cash Insights
+
+Show:
+- Current balance of each tracked bank account.
+- Combined bank balance.
+- Current cash in hand.
+- Money received each month.
+- Money paid each month.
+- Transfers in and out.
+- Bank-versus-cash transaction breakdown.
+- Account balance history, where opening balances and transactions are available.
+
+Allow me to investigate changes by date and transaction.
+
+### F. Decision-Focused Summaries
+
+Provide short summaries based on the recorded data, such as:
+
+- "Your highest recorded income source this month was Software Business."
+- "Bike A generated more net income than Bike B during the selected period."
+- "Investment B has no recorded income during the selected period."
+- "Travel expenses increased compared with the previous month."
+
+Do not make unsupported assumptions about investments, suggest guaranteed returns, or classify an investment as unsuccessful solely because it has not yet returned principal.
+
+Always let me open the transactions behind a summary so I can verify the numbers.
+
+## 12. Home-Screen Widget and Quick Entry
+
+This feature is a major requirement.
+
+I do not want to open the full web application every time I receive money, make an expense, or invest money.
+
+I want a small, easily accessible interface on my phone's home screen that lets me record financial transactions quickly.
+
+Implement this as a home-screen quick-entry widget where the target platform supports it. If the existing web-only architecture cannot provide a true operating-system home-screen widget, build the best supported alternative using an installable PWA and a dedicated quick-entry screen, and clearly identify what additional native implementation would be required for a true widget.
+
+### Widget Requirements
+
+Keep the widget compact and easy to access.
+
+Provide quick actions for:
+- Add Earnings.
+- Add Expense.
+- Add Investment.
+- Record Investment Return, where practical.
+
+Selecting an action should open a minimal form rather than forcing me through the entire dashboard.
+
+The form should reuse the source, expense category, investment, account, and other configuration data already stored in the application.
+
+Remember recent selections where appropriate, so recurring transactions require fewer taps.
+
+### Example Workflow: Recording Earnings
+
+1. I tap the quick-entry widget.
+2. I select Add Earnings.
+3. I enter ₹500.
+4. I select Bike Rental Business from the dropdown.
+5. I select Cash or Bank.
+6. I save.
+
+The transaction is recorded, the selected balance updates, and the appropriate dashboard insights refresh.
+
+### Example Workflow: Recording an Expense
+
+1. I tap the widget.
+2. I select Add Expense.
+3. I enter ₹200.
+4. I select Fuel from the category dropdown.
+5. I select Bank or Cash.
+6. I save.
+
+The expense is recorded and the correct balance is reduced.
+
+### Offline and Reliability Requirements
+
+If supported by the selected architecture, allow transaction entry during temporary network outages.
+
+Clearly distinguish pending entries from confirmed, synchronized entries. Prevent duplicate transactions when a pending entry is synchronized again.
+
+Do not silently discard financial transactions.
+
+Provide clear feedback if an entry fails to save or synchronize.
+
+Because these are financial records, the quick-entry interface must use the same authentication and access controls as the main application.
+
+## 13. Transaction History and Corrections
+
+Create a unified transaction history page.
+
+Each transaction must include:
+- Unique transaction ID.
+- Transaction date.
+- Transaction type.
+- Amount.
+- Related account.
+- Related source, expense category, or investment.
+- Principal and income breakdown, where applicable.
+- Description or notes.
+- Creation timestamp.
+- Last updated timestamp.
+
+Allow filtering by:
+- Date.
+- Transaction type.
+- Account.
+- Earnings source.
+- Expense category.
+- Investment.
+- Amount range.
+
+Allow the user to inspect and correct mistaken entries.
+
+Editing or deleting an existing transaction must recalculate every affected balance and report correctly.
+
+Use confirmation before deleting financial records. Preserve sufficient audit information to make corrections traceable.
+
+When a transaction is associated with an investment, make sure the investment register and investment-specific reports update correctly.
+
+Provide an opening-balance setup for each tracked bank account and for cash in hand.
+
+Do not assume an initial account balance is new income. It is an opening balance used to establish the starting financial position.
+
+## 14. Data Model and Accounting Integrity
+
+Design the data model before implementing transaction logic.
+
+At a minimum, support the following entities:
+
+### Accounts
+Store account ID, account name, account type, opening balance, opening date, active status, and relevant metadata.
+
+### Income Sources
+Store source ID, name, category, optional business association, description, and active status.
+
+### Expense Categories
+Store category ID, name, description, and active status.
+
+### Investments
+Store investment ID, name, type, initial principal, additional capital contributions, associated business or asset, investment date, expected return details, status, and notes.
+
+### Transactions
+Store transaction ID, transaction type, date, amount, account, source or category where applicable, associated investment where applicable, notes, and timestamps.
+
+Support a clear distinction between:
+- Income received.
+- Ordinary expense paid.
+- Investment capital contributed.
+- Investment principal returned.
+- Investment interest or profit received.
+- Transfers between tracked accounts.
+- Transfers to or from untracked external accounts.
+- Opening balances.
+- Direct investment expenses.
+
+Use a consistent transaction model so that every event is recorded once and contributes correctly to the relevant totals.
+
+Where a single receipt contains both principal and income, retain the breakdown in the transaction record rather than splitting it into unrelated transactions that might double-count the received cash.
+
+Use appropriate database constraints, validation, and atomic writes wherever supported by the architecture.
+
+When updating balances, calculate them from the authoritative transaction records rather than maintaining conflicting copies of the same financial totals in multiple places.
+
+If cached balances are used for performance, ensure they can be reconciled with the authoritative records.
+
+Use decimal-safe or integer-paise currency calculations to prevent floating-point rounding errors.
+
+## 15. Required Validation and Accounting Tests
+
+Before considering the application complete, implement and test the following cases.
+
+**Test 1: New investment**
+
+Starting bank balance: ₹1,00,000  
+New investment: ₹20,000
+
+Expected:
+- Bank: ₹80,000.
+- Outstanding investments: ₹20,000.
+- My Money: unchanged at ₹1,00,000, assuming no other balances or transactions.
+
+**Test 2: Principal and interest repayment**
+
+Initial investment: ₹1,00,000  
+Receipt: ₹500, comprising ₹300 principal and ₹200 interest.
+
+Expected:
+- Outstanding principal: ₹99,700.
+- Bank or cash: increases by ₹500.
+- Earnings: increases by ₹200.
+- My Money: increases by ₹200.
+
+**Test 3: Investment fully repaid**
+
+Outstanding principal before repayment: ₹300  
+Receipt: ₹500, comprising ₹300 principal and ₹200 interest.
+
+Expected:
+- Outstanding principal: ₹0.
+- Bank or cash: increases by ₹500.
+- Earnings: increases by ₹200.
+- Investment status: Fully Returned or Closed, according to the selected closure workflow.
+- My Money: increases by ₹200.
+
+**Test 4: Expense paid in cash**
+
+Opening cash balance: ₹2,000  
+Cash expense: ₹500.
+
+Expected:
+- Cash: ₹1,500.
+- Expenses: increase by ₹500.
+- My Money: decreases by ₹500.
+
+**Test 5: Internal transfer**
+
+Transfer ₹10,000 from one tracked bank account to another.
+
+Expected:
+- Source balance decreases by ₹10,000.
+- Destination balance increases by ₹10,000.
+- My Money remains unchanged.
+- Earnings and expenses remain unchanged.
+
+**Test 6: External transfer**
+
+Transfer ₹5,000 from the tracked business bank account to an untracked personal bank account.
+
+Expected:
+- Tracked bank balance decreases by ₹5,000.
+- My Money decreases by ₹5,000.
+- Earnings and expenses remain unchanged.
+- The entry is visible as an external transfer or owner withdrawal.
+
+**Test 7: Edit a saved transaction**
+
+Edit a recorded expense from ₹500 to ₹400.
+
+Expected:
+- The correct account balance is recalculated.
+- The expense total decreases by ₹100 relative to the original transaction.
+- The related dashboard figures and insights remain consistent.
+- The transaction is not counted twice.
+
+**Test 8: Prevent invalid principal repayment**
+
+Outstanding investment principal: ₹1,000  
+Attempted principal repayment: ₹1,500.
+
+Expected:
+- Prevent the invalid principal repayment or require a valid correction to the transaction components.
+- Never allow outstanding principal to become negative silently.
+
+**Test 9: Opening balance**
+
+Set a bank's opening balance to ₹50,000.
+
+Expected:
+- The bank balance starts at ₹50,000.
+- Opening balance is not counted as newly earned income.
+- Historical transaction and report calculations use the selected opening date consistently.
+
+**Test 10: Duplicate synchronization**
+
+Submit a quick-entry transaction and simulate a retry during synchronization.
+
+Expected:
+- The transaction is stored only once.
+- Account balances and reports are not duplicated.
+
+Automate these tests wherever possible and add regression tests for every accounting correction.
+
+## 16. Navigation and Overall User Experience
+
+Keep the primary navigation straightforward:
+
+- Dashboard
+- Earnings
+- Expenses
+- Investments
+- Insights
+- Transactions
+- Settings
+
+Allow access to source and expense-category management from their relevant pages.
+
+Do not require the user to navigate into Settings for ordinary transaction entry.
+
+The dashboard should provide quick access to the plus menu and the Insights page.
+
+Each summary card should be clickable and lead to the relevant detail page.
+
+For example:
+- Clicking Investments opens the investment register.
+- Clicking Earnings opens the earnings history and source breakdown.
+- Clicking In Bank opens account balances and bank transactions.
+- Clicking Expenses opens expense records and analysis.
+- Clicking My Money opens the complete tracked financial position.
+
+Keep navigation consistent across desktop and mobile.
+
+## 17. Settings and Configuration
+
+Allow me to configure:
+- Income sources.
+- Expense categories.
+- Bank accounts.
+- Opening balances.
+- Investment types.
+- Businesses and projects.
+- Currency formatting.
+- Default dashboard date range.
+- Quick-entry preferences.
+
+Allow custom categories and sources without requiring changes to the source code.
+
+Support deactivating items without removing their historical transactions.
+
+## 18. Implementation Expectations
+
+Before changing the application, inspect its current architecture, technology stack, existing components, database schema, and authentication system.
+
+Reuse the existing design system and database where practical.
+
+Do not rebuild working features unnecessarily.
+
+Implement the application in logical stages:
+
+1. Dashboard and navigation.
+2. Account and opening-balance management.
+3. Earnings and source management.
+4. Expense tracking and category management.
+5. Investment register and capital contributions.
+6. Principal repayment and investment income logic.
+7. Transaction history and editing.
+8. Insights and investment performance reports.
+9. Home-screen quick-entry experience.
+10. Automated tests and accounting reconciliation.
+
+If the project already contains financial records, preserve them and provide a safe migration plan for schema changes.
+
+Use reusable components and clear business logic rather than scattering balance calculations throughout the interface.
+
+Clearly separate presentation logic from accounting and transaction-processing logic.
+
+Ensure that save operations are validated, secure, and resistant to duplicate submissions.
+
+Do not display fabricated balances or sample figures as the user's actual financial data. Any sample data must be clearly identified and kept separate from real records.
+
+## 19. Final Acceptance Criteria
+
+The application is complete only when:
+
+1. I can see My Money, Investments, In Bank, In Cash, Earnings, and Expenses from the main dashboard.
+2. My Money follows the defined financial-position formula.
+3. I can add an unlimited number of earnings sources and choose them from a dropdown.
+4. I can add expense categories and manually create new ones when required.
+5. I can record investments in multiple businesses, rental assets, and other investments.
+6. Every investment maintains its own principal, repayment, income, expense, and performance history.
+7. Principal repayments and interest or profit income are tracked separately.
+8. Bank and cash transactions update the correct balances.
+9. Internal transfers do not artificially increase earnings or expenses.
+10. External transfers reduce the tracked financial position without automatically becoming expenses.
+11. Insights show actual recorded earnings, expenses, investment repayments, and investment performance for a selected period.
+12. All dashboard figures can be traced to the underlying transactions.
+13. Editing and correcting a transaction recalculates all affected totals accurately.
+14. The quick-entry experience reduces the steps required to record common transactions.
+15. The home-screen widget is implemented where supported, or a clear PWA-based alternative is delivered when native widgets are unavailable.
+16. Financial calculations remain accurate after reloads, synchronization, and repeated edits.
+17. The application works correctly across desktop, tablet, and mobile.
+18. The interface remains minimalist, fast, reliable, and easy to understand.
+
+**Final product goal:** I should be able to open this application at any time and understand how much money I have, where it is held, how much capital is still invested, how much principal has returned, how much interest or profit I have earned, where I am spending money, and which businesses or investments are generating the best results.
+
+Build this as a reliable financial decision-making tool, not merely a collection of forms and dashboard cards.

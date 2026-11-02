@@ -1,0 +1,107 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Diagnostics & Connection test document
+    match /test/{document=**} {
+      allow read, write: if true;
+    }
+    match /diagnostics/{document=**} {
+      allow read, write: if true;
+    }
+
+    // Direct Root Collections (Live App Sync & Console Visibility)
+    match /accounts/{accountId} {
+      allow read, write: if true;
+    }
+    match /incomeSources/{sourceId} {
+      allow read, write: if true;
+    }
+    match /expenseCategories/{categoryId} {
+      allow read, write: if true;
+    }
+    match /investments/{investmentId} {
+      allow read, write: if true;
+    }
+    match /transactions/{transactionId} {
+      allow read, write: if true;
+    }
+
+    // User-scoped data isolation
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      // Accounts
+      match /accounts/{accountId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(accountId)
+          && request.resource.data.userId == userId
+          && request.resource.data.name is string && request.resource.data.name.size() <= 100
+          && request.resource.data.type in ['bank', 'cash']
+          && request.resource.data.openingBalance is number;
+        allow delete: if isOwner(userId) && isValidId(accountId);
+      }
+
+      // Income Sources
+      match /incomeSources/{sourceId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(sourceId)
+          && request.resource.data.userId == userId
+          && request.resource.data.name is string && request.resource.data.name.size() <= 100
+          && request.resource.data.category is string && request.resource.data.category.size() <= 100;
+        allow delete: if isOwner(userId) && isValidId(sourceId);
+      }
+
+      // Expense Categories
+      match /expenseCategories/{categoryId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(categoryId)
+          && request.resource.data.userId == userId
+          && request.resource.data.name is string && request.resource.data.name.size() <= 100;
+        allow delete: if isOwner(userId) && isValidId(categoryId);
+      }
+
+      // Investments
+      match /investments/{investmentId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(investmentId)
+          && request.resource.data.userId == userId
+          && request.resource.data.name is string && request.resource.data.name.size() <= 150
+          && request.resource.data.type in ['rental_asset', 'business', 'loan', 'equipment', 'profit_sharing', 'other']
+          && request.resource.data.initialPrincipal is number
+          && request.resource.data.status in ['active', 'partially_returned', 'fully_returned', 'closed'];
+        allow delete: if isOwner(userId) && isValidId(investmentId);
+      }
+
+      // Transactions
+      match /transactions/{transactionId} {
+        allow read: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(transactionId)
+          && request.resource.data.userId == userId
+          && request.resource.data.type in ['income', 'expense', 'investment_contribution', 'investment_return', 'investment_expense', 'transfer_internal', 'transfer_external']
+          && request.resource.data.amount is number
+          && request.resource.data.amount >= 0;
+        allow delete: if isOwner(userId) && isValidId(transactionId);
+      }
+    }
+  }
+}

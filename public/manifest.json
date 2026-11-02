@@ -1,0 +1,35 @@
+{
+  "id": "/",
+  "name": "MoneyDesk - Personal Financial Intelligence",
+  "short_name": "MoneyDesk",
+  "description": "Minimalist personal money tracking and investment intelligence dashboard.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#09090b",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Add Transaction",
+      "short_name": "Quick Add",
+      "description": "Quickly record earnings, expense, or investment",
+      "url": "/?action=quick-add",
+      "icons": [{ "src": "/icon.svg", "sizes": "192x192" }]
+    }
+  ]
+}
