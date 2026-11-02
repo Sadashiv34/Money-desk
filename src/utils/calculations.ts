@@ -6,6 +6,7 @@ import {
   Transaction,
   DashboardSummary,
   DateRange,
+  LenderDebtSummary,
 } from '../types/financial';
 
 /**
@@ -76,6 +77,18 @@ export function calculateAccountBalances(
       }
       case 'transfer_external': {
         // Tracked account decreases (transfer to untracked external account / owner withdrawal)
+        const current = balancesByAccountId.get(tx.accountId) ?? 0;
+        balancesByAccountId.set(tx.accountId, current - amount);
+        break;
+      }
+      case 'borrowed_inflow': {
+        // Borrowed cash/bank deposit increases receiving account balance
+        const current = balancesByAccountId.get(tx.accountId) ?? 0;
+        balancesByAccountId.set(tx.accountId, current + amount);
+        break;
+      }
+      case 'borrowed_repayment': {
+        // Repaying borrowed money decreases paying account balance
         const current = balancesByAccountId.get(tx.accountId) ?? 0;
         balancesByAccountId.set(tx.accountId, current - amount);
         break;
@@ -312,10 +325,26 @@ export function calculateDashboardSummary(
     }
   }
 
-  // 3. My Money Formula
-  const myMoney = totalInvestmentsOutstanding + totalBankBalances + totalCashInHand;
+  // 3. Borrowed Money (Liabilities)
+  const {
+    totalOutstanding: totalBorrowedOutstanding,
+    activeLendersCount: totalBorrowedActiveCount,
+    lendersList: lendersSummary,
+  } = calculateBorrowedMetrics(transactions);
 
-  // 4. Period earnings and expenses
+  // Period specific borrowed flows
+  const targetTxs = filterTransactionsByDate(transactions, dateRange);
+  let periodBorrowedReceived = 0;
+  let periodBorrowedRepaid = 0;
+  for (const tx of targetTxs) {
+    if (tx.type === 'borrowed_inflow') periodBorrowedReceived += tx.amount || 0;
+    if (tx.type === 'borrowed_repayment') periodBorrowedRepaid += tx.amount || 0;
+  }
+
+  // 4. My Money Formula (Net Worth = Assets - Liabilities)
+  const myMoney = (totalInvestmentsOutstanding + totalBankBalances + totalCashInHand) - totalBorrowedOutstanding;
+
+  // 5. Period earnings and expenses
   const { earnings: periodEarnings, expenses: periodExpenses, netOperatingCashFlow } =
     calculatePeriodEarningsAndExpenses(transactions, dateRange);
 
@@ -329,6 +358,102 @@ export function calculateDashboardSummary(
     netOperatingCashFlow,
     accountsBreakdown: accountsWithBalances,
     activeInvestmentsCount,
+    totalBorrowedOutstanding,
+    totalBorrowedActiveCount,
+    periodBorrowedReceived,
+    periodBorrowedRepaid,
+    lendersSummary,
+  };
+}
+
+/**
+ * Calculate metrics for borrowed money (loans received) and repayments by person/lender
+ */
+export function calculateBorrowedMetrics(
+  transactions: Transaction[]
+): {
+  totalBorrowed: number;
+  totalRepaid: number;
+  totalOutstanding: number;
+  activeLendersCount: number;
+  lendersList: LenderDebtSummary[];
+} {
+  const lenderMap = new Map<
+    string,
+    {
+      totalBorrowed: number;
+      totalRepaid: number;
+      lastDate: string;
+      interestRate?: string;
+      duration?: string;
+      receivingAccountId?: string;
+    }
+  >();
+
+  for (const tx of transactions) {
+    if (tx.type === 'borrowed_inflow' && tx.lenderName && tx.lenderName.trim()) {
+      const name = tx.lenderName.trim();
+      const current = lenderMap.get(name) || {
+        totalBorrowed: 0,
+        totalRepaid: 0,
+        lastDate: tx.date,
+        interestRate: tx.borrowedInterestRate,
+        duration: tx.borrowedDuration,
+        receivingAccountId: tx.accountId,
+      };
+      current.totalBorrowed += tx.amount || 0;
+      if (tx.date > current.lastDate) current.lastDate = tx.date;
+      if (tx.borrowedInterestRate) current.interestRate = tx.borrowedInterestRate;
+      if (tx.borrowedDuration) current.duration = tx.borrowedDuration;
+      lenderMap.set(name, current);
+    } else if (tx.type === 'borrowed_repayment' && tx.lenderName && tx.lenderName.trim()) {
+      const name = tx.lenderName.trim();
+      const current = lenderMap.get(name) || {
+        totalBorrowed: 0,
+        totalRepaid: 0,
+        lastDate: tx.date,
+      };
+      current.totalRepaid += tx.amount || 0;
+      if (tx.date > current.lastDate) current.lastDate = tx.date;
+      lenderMap.set(name, current);
+    }
+  }
+
+  let totalBorrowed = 0;
+  let totalRepaid = 0;
+  const lendersList: LenderDebtSummary[] = [];
+
+  for (const [lenderName, data] of lenderMap.entries()) {
+    const outstanding = Math.max(0, data.totalBorrowed - data.totalRepaid);
+    totalBorrowed += data.totalBorrowed;
+    totalRepaid += data.totalRepaid;
+    lendersList.push({
+      lenderName,
+      totalBorrowed: data.totalBorrowed,
+      totalRepaid: data.totalRepaid,
+      outstanding,
+      lastDate: data.lastDate,
+      interestRate: data.interestRate,
+      duration: data.duration,
+      receivingAccountId: data.receivingAccountId,
+    });
+  }
+
+  // Sort lenders: first those with outstanding balance, highest first
+  lendersList.sort((a, b) => {
+    if (b.outstanding !== a.outstanding) return b.outstanding - a.outstanding;
+    return b.lastDate.localeCompare(a.lastDate);
+  });
+
+  const totalOutstanding = Math.max(0, totalBorrowed - totalRepaid);
+  const activeLendersCount = lendersList.filter((l) => l.outstanding > 0).length;
+
+  return {
+    totalBorrowed,
+    totalRepaid,
+    totalOutstanding,
+    activeLendersCount,
+    lendersList,
   };
 }
 

@@ -101,8 +101,8 @@ interface FinanceContextType {
 
   // Quick Entry Modal State
   isQuickEntryOpen: boolean;
-  quickEntryType: 'income' | 'expense' | 'investment' | 'investment_return' | 'transfer' | null;
-  openQuickEntry: (type?: 'income' | 'expense' | 'investment' | 'investment_return' | 'transfer') => void;
+  quickEntryType: 'income' | 'expense' | 'investment' | 'investment_return' | 'transfer' | 'borrowed' | 'borrowed_repayment' | null;
+  openQuickEntry: (type?: 'income' | 'expense' | 'investment' | 'investment_return' | 'transfer' | 'borrowed' | 'borrowed_repayment') => void;
   closeQuickEntry: () => void;
 
   // Security & Hard Deletion PIN
@@ -157,7 +157,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Quick Action Modal
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
-  const [quickEntryType, setQuickEntryType] = useState<'income' | 'expense' | 'investment' | 'investment_return' | 'transfer' | null>(null);
+  const [quickEntryType, setQuickEntryType] = useState<'income' | 'expense' | 'investment' | 'investment_return' | 'transfer' | 'borrowed' | 'borrowed_repayment' | null>(null);
 
   // Hard Deletion Security PIN (Default: 1234)
   const [deletionPin, setDeletionPin] = useState<string>(() => {
@@ -643,7 +643,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
   }, [investments, transactions]);
 
   // Modal handlers
-  const openQuickEntry = (type?: 'income' | 'expense' | 'investment' | 'investment_return' | 'transfer') => {
+  const openQuickEntry = (type?: 'income' | 'expense' | 'investment' | 'investment_return' | 'transfer' | 'borrowed' | 'borrowed_repayment') => {
     setQuickEntryType(type || null);
     setIsQuickEntryOpen(true);
   };
@@ -687,6 +687,20 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     if (txData.type === 'expense' && !txData.categoryId && expenseCategories.length > 0) {
       txData.categoryId = expenseCategories[0].id;
+    }
+
+    if (txData.type === 'borrowed_inflow') {
+      if (!txData.lenderName || !txData.lenderName.trim()) {
+        return { success: false, error: 'Please enter the name of the person/lender borrowed from.' };
+      }
+      txData.lenderName = txData.lenderName.trim();
+    }
+
+    if (txData.type === 'borrowed_repayment') {
+      if (!txData.lenderName || !txData.lenderName.trim()) {
+        return { success: false, error: 'Please select the person you are returning borrowed money to.' };
+      }
+      txData.lenderName = txData.lenderName.trim();
     }
 
     if (txData.type === 'investment_return') {

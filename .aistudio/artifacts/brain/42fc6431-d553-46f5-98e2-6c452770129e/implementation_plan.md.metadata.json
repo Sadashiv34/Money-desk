@@ -1,6 +1,6 @@
 {
-  "summary":  "Implementation plan for Personal Money Tracker & Investment Intelligence Dashboard: a mobile-first, executive-grade PWA designed for non-accountants to track rental assets, software income, investments, bank/cash balances, and investment returns with strict accounting integrity.",
-  "updatedAt":  "2026-10-26T09:18:13.992218415Z",
-  "requestFeedback":  true,
-  "userFacing":  true
+  "summary": "Updated implementation plan with complete details on Borrowed Money (Loans Received) & Borrowed Money Repayment (Debt Returns) system, including Dashboard Borrowed box, Quick Entry modal integration, ExpensesView Borrowed Money Return column and ledger, and universal transaction history support.",
+  "updatedAt": "2026-11-02T19:49:29.864868006Z",
+  "requestFeedback": true,
+  "userFacing": true
 }

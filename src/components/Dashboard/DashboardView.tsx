@@ -17,7 +17,11 @@ import {
   ShieldCheck, 
   Sparkles,
   ChevronDown,
-  Info
+  Info,
+  HandCoins,
+  Users,
+  RotateCcw,
+  X
 } from 'lucide-react';
 
 export const DashboardView: React.FC = () => {
@@ -35,6 +39,7 @@ export const DashboardView: React.FC = () => {
   } = useFinance();
 
   const [showFormulaBreakdown, setShowFormulaBreakdown] = useState(false);
+  const [showBorrowedModal, setShowBorrowedModal] = useState(false);
 
   // Chronologically sorted recent 5 transactions
   const recentTransactions = useMemo(() => {
@@ -136,8 +141,14 @@ export const DashboardView: React.FC = () => {
               <span>+ In Cash (In Hand):</span>
               <span className="text-white font-semibold tabular-nums">{formatIndianCurrency(summary.totalCashInHand)}</span>
             </div>
+            {summary.totalBorrowedOutstanding > 0 && (
+              <div className="flex justify-between items-center text-amber-400">
+                <span>- Borrowed Debt:</span>
+                <span className="font-semibold tabular-nums">-{formatIndianCurrency(summary.totalBorrowedOutstanding)}</span>
+              </div>
+            )}
             <div className="border-t border-zinc-800 pt-1 flex justify-between items-center font-bold text-emerald-400">
-              <span>= My Money:</span>
+              <span>= My Money (Net Worth):</span>
               <span className="tabular-nums">{formatIndianCurrency(summary.myMoney)}</span>
             </div>
           </div>
@@ -222,7 +233,7 @@ export const DashboardView: React.FC = () => {
         </div>
       </div>
 
-      {/* 4. BALANCED ROW: In Cash & Insights */}
+      {/* 4. ROW 4: In Cash & Borrowed (Faithfully matching user's request) */}
       <div className="grid grid-cols-2 gap-3 sm:gap-5">
         {/* In Cash Box */}
         <div className="flex flex-col items-center">
@@ -231,7 +242,7 @@ export const DashboardView: React.FC = () => {
           </span>
           <div
             onClick={() => openQuickEntry('expense')}
-            className="w-full min-h-[110px] sm:min-h-[120px] p-4 rounded-2xl bg-zinc-900/60 hover:bg-zinc-900/90 border-2 border-zinc-700/90 hover:border-zinc-500 transition-all cursor-pointer flex flex-col items-center justify-center text-center shadow-md group"
+            className="w-full min-h-[120px] sm:min-h-[130px] p-4 rounded-2xl bg-zinc-900/60 hover:bg-zinc-900/90 border-2 border-zinc-700/90 hover:border-zinc-500 transition-all cursor-pointer flex flex-col items-center justify-center text-center shadow-md group"
           >
             <span className="text-xl sm:text-2xl font-bold text-white tracking-tight tabular-nums font-mono">
               {formatIndianCurrency(summary.totalCashInHand)}
@@ -242,29 +253,70 @@ export const DashboardView: React.FC = () => {
           </div>
         </div>
 
-        {/* Insights Box */}
+        {/* Borrowed Box */}
         <div className="flex flex-col items-center">
-          <span className="text-xs sm:text-sm font-semibold text-zinc-300 mb-2 tracking-tight">
-            Insights
+          <span className="text-xs sm:text-sm font-semibold text-zinc-300 mb-2 tracking-tight flex items-center gap-1.5">
+            <span>Borrowed</span>
+            {summary.totalBorrowedOutstanding > 0 && (
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+            )}
           </span>
           <div
-            onClick={() => setActiveTab('insights')}
-            className="w-full min-h-[110px] sm:min-h-[120px] p-4 rounded-2xl bg-zinc-900/60 hover:bg-zinc-900/90 border-2 border-zinc-700/90 hover:border-emerald-500/60 transition-all cursor-pointer flex flex-col items-center justify-center text-center shadow-md group"
+            onClick={() => setShowBorrowedModal(true)}
+            className={`w-full min-h-[120px] sm:min-h-[130px] p-4 rounded-2xl bg-zinc-900/60 hover:bg-zinc-900/90 border-2 transition-all cursor-pointer flex flex-col items-center justify-center text-center shadow-md group ${
+              summary.totalBorrowedOutstanding > 0
+                ? 'border-amber-500/70 hover:border-amber-400 ring-1 ring-amber-500/20'
+                : 'border-zinc-700/90 hover:border-zinc-500'
+            }`}
           >
-            <span className={`text-base sm:text-lg font-bold tracking-tight font-mono tabular-nums ${
-              summary.netOperatingCashFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'
+            <span className={`text-xl sm:text-2xl font-bold tracking-tight tabular-nums font-mono ${
+              summary.totalBorrowedOutstanding > 0 ? 'text-amber-400' : 'text-zinc-300'
             }`}>
-              {formatIndianCurrency(summary.netOperatingCashFlow)}
+              {formatIndianCurrency(summary.totalBorrowedOutstanding)}
             </span>
             <span className="text-[11px] text-zinc-400 mt-1 flex items-center gap-1">
-              <Sparkles className="w-3 h-3 text-emerald-400" />
-              <span>Net cash velocity</span>
+              {summary.totalBorrowedOutstanding > 0 ? (
+                <>
+                  <HandCoins className="w-3.5 h-3.5 text-amber-400" />
+                  <span>{summary.totalBorrowedActiveCount} lender{summary.totalBorrowedActiveCount === 1 ? '' : 's'} pending</span>
+                </>
+              ) : (
+                <span>No debt / All clear</span>
+              )}
             </span>
           </div>
         </div>
       </div>
 
-      {/* 5. RECENT ACTIVITY STRIP (Quiet, minimalist below the sketch grid) */}
+      {/* 5. ROW 5: Insights Strip */}
+      <div
+        onClick={() => setActiveTab('insights')}
+        className="w-full p-4 rounded-2xl bg-zinc-900/60 hover:bg-zinc-900/90 border-2 border-zinc-700/90 hover:border-emerald-500/60 transition-all cursor-pointer flex items-center justify-between shadow-md group"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div className="truncate">
+            <h4 className="text-xs sm:text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors">
+              Insights & Cash Velocity
+            </h4>
+            <p className="text-[11px] text-zinc-400 truncate">
+              Net operating cash velocity for {currentMonthLabel}
+            </p>
+          </div>
+        </div>
+        <div className="text-right shrink-0 pl-2">
+          <span className={`text-base sm:text-lg font-bold tracking-tight font-mono tabular-nums ${
+            summary.netOperatingCashFlow >= 0 ? 'text-emerald-400' : 'text-rose-400'
+          }`}>
+            {formatIndianCurrency(summary.netOperatingCashFlow)}
+          </span>
+          <span className="text-[10px] text-zinc-500 block">Period velocity</span>
+        </div>
+      </div>
+
+      {/* 6. RECENT ACTIVITY STRIP (Quiet, minimalist below the sketch grid) */}
       <div className="pt-4 border-t border-zinc-800/80">
         <div className="flex items-center justify-between mb-3 text-xs">
           <span className="font-semibold text-zinc-400 uppercase tracking-wider">
@@ -288,16 +340,19 @@ export const DashboardView: React.FC = () => {
         ) : (
           <div className="divide-y divide-zinc-800/60 bg-zinc-900/50 rounded-xl border border-zinc-800/80 overflow-hidden">
             {recentTransactions.map((tx) => {
-              const isPositive = tx.type === 'income' || tx.type === 'investment_return';
-              const isNegative = tx.type === 'expense' || tx.type === 'investment_contribution' || tx.type === 'investment_expense';
+              const isPositive = tx.type === 'income' || tx.type === 'investment_return' || tx.type === 'borrowed_inflow';
+              const isNegative = tx.type === 'expense' || tx.type === 'investment_contribution' || tx.type === 'investment_expense' || tx.type === 'borrowed_repayment';
               return (
                 <div key={tx.id} className="p-3 flex items-center justify-between text-xs">
                   <div className="min-w-0 pr-2">
                     <p className="font-medium text-zinc-200 truncate">
-                      {tx.notes || tx.type.replace('_', ' ')}
+                      {tx.lenderName
+                        ? `${tx.type === 'borrowed_inflow' ? 'Borrowed from' : 'Repayment to'} ${tx.lenderName}`
+                        : tx.notes || tx.type.replace('_', ' ')}
                     </p>
                     <p className="text-[11px] text-zinc-500 mt-0.5 font-mono">
                       {formatShortDate(tx.date)} · <span className="capitalize">{tx.type.replace('_', ' ')}</span>
+                      {tx.lenderName ? ` · ${tx.lenderName}` : ''}
                     </p>
                   </div>
                   <span className={`font-mono font-bold tabular-nums shrink-0 ${
@@ -311,6 +366,124 @@ export const DashboardView: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* BORROWED MONEY BREAKDOWN MODAL */}
+      {showBorrowedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
+          <div className="w-full max-w-lg rounded-2xl bg-zinc-900 border border-zinc-800 text-zinc-100 shadow-2xl overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-950/60">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
+                  <HandCoins className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">Borrowed Money & Lenders</h3>
+                  <p className="text-xs text-zinc-400">Total Outstanding Debt: {formatIndianCurrency(summary.totalBorrowedOutstanding)}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowBorrowedModal(false)}
+                className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  onClick={() => {
+                    setShowBorrowedModal(false);
+                    openQuickEntry('borrowed');
+                  }}
+                  className="flex-1 py-2.5 px-3 bg-purple-600 hover:bg-purple-500 text-white font-semibold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Borrow More Money</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowBorrowedModal(false);
+                    openQuickEntry('borrowed_repayment');
+                  }}
+                  className="flex-1 py-2.5 px-3 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Repay / Return Money</span>
+                </button>
+              </div>
+
+              {summary.lendersSummary.length === 0 ? (
+                <div className="text-center py-8 bg-zinc-950/50 rounded-xl border border-zinc-800/80 p-4">
+                  <p className="text-sm font-semibold text-zinc-300">No borrowed money records</p>
+                  <p className="text-xs text-zinc-500 mt-1">
+                    When you borrow money from any person, click "+ Borrow More Money" to record the amount, lender name, tenure, and interest rate.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {summary.lendersSummary.map((lender) => (
+                    <div
+                      key={lender.lenderName}
+                      className={`p-4 rounded-xl border transition-all ${
+                        lender.outstanding > 0
+                          ? 'bg-zinc-950/70 border-amber-500/30 ring-1 ring-amber-500/10'
+                          : 'bg-zinc-950/40 border-zinc-800/80 opacity-75'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                            <span>{lender.lenderName}</span>
+                            {lender.outstanding === 0 && (
+                              <span className="text-[10px] px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 rounded">
+                                Fully Cleared
+                              </span>
+                            )}
+                          </h4>
+                          <p className="text-[11px] text-zinc-400 mt-0.5 font-mono">
+                            Last active: {formatShortDate(lender.lastDate)}
+                            {lender.duration ? ` · Tenure: ${lender.duration}` : ''}
+                            {lender.interestRate ? ` · Rate: ${lender.interestRate}` : ''}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className={`text-sm font-bold font-mono tabular-nums ${
+                            lender.outstanding > 0 ? 'text-amber-400' : 'text-zinc-400'
+                          }`}>
+                            {formatIndianCurrency(lender.outstanding)}
+                          </span>
+                          <span className="text-[10px] text-zinc-500 block">Remaining Due</span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 pt-2.5 border-t border-zinc-800/70 flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-3 text-zinc-400 font-mono text-[11px]">
+                          <span>Borrowed: <strong className="text-zinc-200">{formatIndianCurrency(lender.totalBorrowed)}</strong></span>
+                          <span>·</span>
+                          <span>Returned: <strong className="text-emerald-400">{formatIndianCurrency(lender.totalRepaid)}</strong></span>
+                        </div>
+
+                        {lender.outstanding > 0 && (
+                          <button
+                            onClick={() => {
+                              setShowBorrowedModal(false);
+                              openQuickEntry('borrowed_repayment');
+                            }}
+                            className="px-3 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 font-medium rounded-lg text-xs transition-colors cursor-pointer"
+                          >
+                            Repay
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 
         6. PROMINENT CIRCULAR (+) BUTTON IN BOTTOM-RIGHT

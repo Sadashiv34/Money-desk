@@ -18,7 +18,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldAlert,
-  Clock
+  Clock,
+  HandCoins,
+  UserCheck
 } from 'lucide-react';
 import { filterTransactionsByDate, getDateRangeForPeriod } from '../../utils/calculations';
 import { SecureDeleteModal } from './SecureDeleteModal';
@@ -48,6 +50,9 @@ export const TransactionsView: React.FC = () => {
   const [editDate, setEditDate] = useState('');
   const [editTid, setEditTid] = useState('');
   const [editNotes, setEditNotes] = useState('');
+  const [editLenderName, setEditLenderName] = useState('');
+  const [editDuration, setEditDuration] = useState('');
+  const [editInterestRate, setEditInterestRate] = useState('');
   const [editPrincipalReturned, setEditPrincipalReturned] = useState('');
   const [editProfitReceived, setEditProfitReceived] = useState('');
   const [editError, setEditError] = useState<string | null>(null);
@@ -82,9 +87,12 @@ export const TransactionsView: React.FC = () => {
         const tidMatch = tx.tid?.toLowerCase().includes(q) || tx.referenceDoc?.toLowerCase().includes(q);
         const typeMatch = tx.type.toLowerCase().includes(q);
         const bizMatch = tx.associatedBusiness?.toLowerCase().includes(q);
+        const lenderMatch = tx.lenderName?.toLowerCase().includes(q);
         const amountMatch = tx.amount.toString().includes(q);
         const dateMatch = tx.date.includes(q);
-        if (!notesMatch && !tidMatch && !typeMatch && !bizMatch && !amountMatch && !dateMatch) return false;
+        if (!notesMatch && !tidMatch && !typeMatch && !bizMatch && !lenderMatch && !amountMatch && !dateMatch) {
+          return false;
+        }
       }
       return true;
     });
@@ -100,6 +108,9 @@ export const TransactionsView: React.FC = () => {
     setEditDate(tx.date);
     setEditTid(tx.tid || tx.referenceDoc || '');
     setEditNotes(tx.notes || '');
+    setEditLenderName(tx.lenderName || '');
+    setEditDuration(tx.borrowedDuration || '');
+    setEditInterestRate(tx.borrowedInterestRate || '');
     setEditPrincipalReturned(tx.principalReturned ? tx.principalReturned.toString() : '');
     setEditProfitReceived(tx.interestOrProfitReceived ? tx.interestOrProfitReceived.toString() : '');
     setEditError(null);
@@ -122,6 +133,16 @@ export const TransactionsView: React.FC = () => {
       referenceDoc: editTid.trim() || undefined,
       notes: editNotes.trim(),
     };
+
+    if (editingTx.type === 'borrowed_inflow' || editingTx.type === 'borrowed_repayment') {
+      if (!editLenderName.trim()) {
+        setEditError('Please specify the person / lender name.');
+        return;
+      }
+      updates.lenderName = editLenderName.trim();
+      updates.borrowedDuration = editDuration.trim() || undefined;
+      updates.borrowedInterestRate = editInterestRate.trim() || undefined;
+    }
 
     if (editingTx.type === 'investment_return') {
       const pRet = parseFloat(editPrincipalReturned) || 0;
@@ -155,7 +176,7 @@ export const TransactionsView: React.FC = () => {
             Transaction History & Ledger
           </h1>
           <p className="text-xs text-zinc-400 mt-1">
-            Complete historical audit of every earning, expense, investment, repayment, and transfer
+            Complete historical audit of every earning, expense, loan, repayment, investment, and transfer
           </p>
         </div>
 
@@ -234,13 +255,13 @@ export const TransactionsView: React.FC = () => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by TID, notes, amount, date, business..."
+              placeholder="Search by person, TID, notes, amount, date..."
               className="w-full bg-zinc-950 border border-zinc-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 cursor-pointer"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -270,6 +291,8 @@ export const TransactionsView: React.FC = () => {
             { id: 'all', label: 'All Entries' },
             { id: 'income', label: 'Earnings / Income' },
             { id: 'expense', label: 'Expenses' },
+            { id: 'borrowed_inflow', label: 'Borrowed (Loans Inflow)' },
+            { id: 'borrowed_repayment', label: 'Debt Returns (Repayments)' },
             { id: 'investment_contribution', label: 'Investments' },
             { id: 'investment_return', label: 'Returns (Principal + Profit)' },
             { id: 'transfer', label: 'Transfers' }
@@ -309,8 +332,10 @@ export const TransactionsView: React.FC = () => {
               const category = tx.categoryId ? expenseCategories.find((c) => c.id === tx.categoryId) : null;
               const investment = tx.investmentId ? investments.find((i) => i.id === tx.investmentId) : null;
 
-              const isPositive = tx.type === 'income' || tx.type === 'investment_return';
-              const isNegative = tx.type === 'expense' || tx.type === 'investment_contribution' || tx.type === 'investment_expense';
+              const isBorrowedInflow = tx.type === 'borrowed_inflow';
+              const isBorrowedRepayment = tx.type === 'borrowed_repayment';
+              const isPositive = tx.type === 'income' || tx.type === 'investment_return' || isBorrowedInflow;
+              const isNegative = tx.type === 'expense' || tx.type === 'investment_contribution' || tx.type === 'investment_expense' || isBorrowedRepayment;
               const isTransfer = tx.type === 'transfer_internal' || tx.type === 'transfer_external';
 
               return (
@@ -320,12 +345,16 @@ export const TransactionsView: React.FC = () => {
                 >
                   <div className="flex items-start gap-3 min-w-0">
                     <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                      isBorrowedInflow ? 'bg-amber-400/15 text-amber-400 border border-amber-400/30' :
+                      isBorrowedRepayment ? 'bg-amber-500/10 text-amber-300 border border-amber-500/25' :
                       isPositive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
                       isNegative ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20' :
-                      isTransfer ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                      isTransfer ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20' :
                       'bg-zinc-800 text-zinc-300 border border-zinc-700'
                     }`}>
-                      {isPositive ? <ArrowDownLeft className="w-4 h-4" /> :
+                      {isBorrowedInflow ? <HandCoins className="w-4 h-4" /> :
+                       isBorrowedRepayment ? <HandCoins className="w-4 h-4" /> :
+                       isPositive ? <ArrowDownLeft className="w-4 h-4" /> :
                        isNegative ? <ArrowUpRight className="w-4 h-4" /> :
                        isTransfer ? <ArrowRightLeft className="w-4 h-4" /> :
                        <ShieldCheck className="w-4 h-4" />}
@@ -334,10 +363,18 @@ export const TransactionsView: React.FC = () => {
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-bold text-zinc-100">
-                          {tx.notes || source?.name || category?.name || investment?.name || tx.type.replace('_', ' ')}
+                          {isBorrowedInflow ? `Loan from ${tx.lenderName || 'Lender'}` :
+                           isBorrowedRepayment ? `Debt Repaid to ${tx.lenderName || 'Lender'}` :
+                           tx.notes || source?.name || category?.name || investment?.name || tx.type.replace('_', ' ')}
                         </span>
-                        <span className="text-[10px] uppercase font-mono text-zinc-400 bg-zinc-950 px-1.5 py-0.5 rounded border border-zinc-800">
-                          {tx.type.replace('_', ' ')}
+                        <span className={`text-[10px] uppercase font-mono px-1.5 py-0.5 rounded border ${
+                          isBorrowedInflow ? 'bg-amber-950/40 text-amber-300 border-amber-500/30 font-bold' :
+                          isBorrowedRepayment ? 'bg-amber-950/30 text-amber-400 border-amber-500/20' :
+                          'text-zinc-400 bg-zinc-950 border-zinc-800'
+                        }`}>
+                          {isBorrowedInflow ? 'Borrowed Loan' :
+                           isBorrowedRepayment ? 'Debt Repayment' :
+                           tx.type.replace('_', ' ')}
                         </span>
                         {tx.tid && (
                           <span className="text-[10px] font-mono text-emerald-400/90 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
@@ -356,6 +393,17 @@ export const TransactionsView: React.FC = () => {
                         <span>·</span>
                         <span>{account?.name || 'Account'}</span>
                         {toAccount && <span className="text-amber-400">→ {toAccount.name}</span>}
+                        {tx.lenderName && (
+                          <span className="text-amber-300 font-semibold">
+                            · Person: {tx.lenderName}
+                          </span>
+                        )}
+                        {tx.borrowedDuration && (
+                          <span className="text-zinc-400">· Tenure: {tx.borrowedDuration}</span>
+                        )}
+                        {tx.borrowedInterestRate && (
+                          <span className="text-zinc-400">· Interest: {tx.borrowedInterestRate}</span>
+                        )}
                         {investment && <span>· Asset: {investment.name}</span>}
                         {tx.principalReturned ? (
                           <span className="text-blue-400">· Principal: {formatIndianCurrency(tx.principalReturned)}</span>
@@ -369,9 +417,11 @@ export const TransactionsView: React.FC = () => {
 
                   <div className="flex items-center justify-between sm:justify-end gap-4 shrink-0 pl-12 sm:pl-0">
                     <span className={`text-sm font-bold font-mono tabular-nums ${
+                      isBorrowedInflow ? 'text-amber-400' :
+                      isBorrowedRepayment ? 'text-amber-300' :
                       isPositive ? 'text-emerald-400' :
                       isNegative ? 'text-zinc-200' :
-                      isTransfer ? 'text-amber-400' :
+                      isTransfer ? 'text-blue-400' :
                       'text-zinc-300'
                     }`}>
                       {isPositive ? '+' : isNegative ? '-' : ''}{formatIndianCurrency(tx.amount)}
@@ -431,6 +481,49 @@ export const TransactionsView: React.FC = () => {
                   className="w-full bg-zinc-950 border border-zinc-800 rounded-xl p-2.5 text-base font-bold font-mono text-white focus:border-emerald-500 focus:outline-none"
                 />
               </div>
+
+              {/* Borrowed / Lender Fields */}
+              {(editingTx.type === 'borrowed_inflow' || editingTx.type === 'borrowed_repayment') && (
+                <div className="p-3 bg-zinc-950 border border-amber-500/30 rounded-xl space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-medium text-amber-400 mb-1">
+                      Lender / Person Name <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editLenderName}
+                      onChange={(e) => setEditLenderName(e.target.value)}
+                      required
+                      placeholder="e.g. Ramesh Uncle, SBI Loan"
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-white focus:border-amber-400 focus:outline-none"
+                    />
+                  </div>
+                  {editingTx.type === 'borrowed_inflow' && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-medium text-zinc-400 mb-1">Tenure / Duration</label>
+                        <input
+                          type="text"
+                          value={editDuration}
+                          onChange={(e) => setEditDuration(e.target.value)}
+                          placeholder="e.g. 6 Months"
+                          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-white"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-medium text-zinc-400 mb-1">Interest Rate</label>
+                        <input
+                          type="text"
+                          value={editInterestRate}
+                          onChange={(e) => setEditInterestRate(e.target.value)}
+                          placeholder="e.g. 0% / 12% p.a."
+                          className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-xs text-white"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {editingTx.type === 'investment_return' && (
                 <div className="grid grid-cols-2 gap-3 p-3 bg-zinc-950 border border-zinc-800 rounded-xl">

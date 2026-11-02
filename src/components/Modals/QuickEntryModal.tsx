@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { InvestmentType } from '../../types/financial';
 import { 
@@ -8,6 +8,7 @@ import {
   Briefcase, 
   ArrowDownLeft, 
   ArrowRightLeft,
+  ArrowUpRight,
   Plus, 
   Check, 
   AlertCircle,
@@ -15,7 +16,12 @@ import {
   Banknote,
   RotateCcw,
   Calendar,
-  ReceiptText
+  ReceiptText,
+  HandCoins,
+  Users,
+  BadgePercent,
+  Clock,
+  ArrowDownRight
 } from 'lucide-react';
 import { formatIndianCurrency } from '../../utils/currency';
 
@@ -30,6 +36,7 @@ export const QuickEntryModal: React.FC = () => {
     expenseCategories, 
     investments,
     investmentMetricsList,
+    summary,
     addTransaction,
     addInvestment,
     addExpenseCategory
@@ -93,6 +100,26 @@ export const QuickEntryModal: React.FC = () => {
   const [invExpectedMethod, setInvExpectedMethod] = useState('');
   const [invExpectedRate, setInvExpectedRate] = useState('');
   const [invExpectedDuration, setInvExpectedDuration] = useState('');
+  // Borrowed money & Repayment state
+  const [lenderName, setLenderName] = useState('');
+  const [borrowedDuration, setBorrowedDuration] = useState('');
+  const [borrowedInterestRate, setBorrowedInterestRate] = useState('');
+  const [selectedRepayLender, setSelectedRepayLender] = useState('');
+
+  // Auto-sync selectedRepayLender when entering borrowed_repayment
+  useEffect(() => {
+    if (activeMode === 'borrowed_repayment') {
+      if ((!selectedRepayLender || !summary.lendersSummary.some(l => l.lenderName === selectedRepayLender)) && summary.lendersSummary.length > 0) {
+        setSelectedRepayLender(summary.lendersSummary[0].lenderName);
+      }
+    }
+  }, [activeMode, selectedRepayLender, summary.lendersSummary]);
+
+  // Current selected lender details
+  const currentLenderInfo = useMemo(() => {
+    if (!selectedRepayLender) return null;
+    return summary.lendersSummary.find((l) => l.lenderName.toLowerCase() === selectedRepayLender.trim().toLowerCase()) || null;
+  }, [selectedRepayLender, summary.lendersSummary]);
 
   // Inline new category state
   const [showNewCatInput, setShowNewCatInput] = useState(false);
@@ -120,13 +147,19 @@ export const QuickEntryModal: React.FC = () => {
     setInvExpectedMethod('');
     setInvExpectedRate('');
     setInvExpectedDuration('');
+    setLenderName('');
+    setBorrowedDuration('');
+    setBorrowedInterestRate('');
+    setSelectedRepayLender('');
     setShowNewCatInput(false);
     setNewCatName('');
     setErrorMessage(null);
     setSuccessMessage(null);
   };
 
-  const handleSelectMode = (mode: 'income' | 'expense' | 'investment' | 'investment_return' | 'transfer') => {
+  const handleSelectMode = (
+    mode: 'income' | 'expense' | 'investment' | 'investment_return' | 'transfer' | 'borrowed' | 'borrowed_repayment'
+  ) => {
     resetFormState();
     openQuickEntry(mode);
   };
@@ -324,6 +357,67 @@ export const QuickEntryModal: React.FC = () => {
         closeQuickEntry();
         resetFormState();
       }, 750);
+    } else if (activeMode === 'borrowed') {
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        setErrorMessage('Please enter a valid positive borrowed amount.');
+        return;
+      }
+      if (!lenderName.trim()) {
+        setErrorMessage('Please enter the name of the person or entity you borrowed money from.');
+        return;
+      }
+      const res = addTransaction({
+        date,
+        type: 'borrowed_inflow',
+        amount: parsedAmount,
+        accountId: effectiveAccountId,
+        lenderName: lenderName.trim(),
+        ...(borrowedDuration.trim() ? { borrowedDuration: borrowedDuration.trim() } : {}),
+        ...(borrowedInterestRate.trim() ? { borrowedInterestRate: borrowedInterestRate.trim() } : {}),
+        ...(trimmedTid ? { tid: trimmedTid, referenceDoc: trimmedTid } : {}),
+        notes: trimmedNotes || `Borrowed from ${lenderName.trim()}`,
+      });
+      if (!res.success) {
+        setErrorMessage(res.error || 'Failed to record borrowed money.');
+        return;
+      }
+      setSuccessMessage(
+        `Recorded borrowed amount of ${formatIndianCurrency(parsedAmount)} from ${lenderName.trim()} into ${accounts.find(a => a.id === effectiveAccountId)?.name || 'account'} on ${date}`
+      );
+      setTimeout(() => {
+        closeQuickEntry();
+        resetFormState();
+      }, 750);
+    } else if (activeMode === 'borrowed_repayment') {
+      if (isNaN(parsedAmount) || parsedAmount <= 0) {
+        setErrorMessage('Please enter the repayment amount returned.');
+        return;
+      }
+      const targetPerson = selectedRepayLender.trim() || lenderName.trim();
+      if (!targetPerson) {
+        setErrorMessage('Please select or specify the person you are returning money to.');
+        return;
+      }
+      const res = addTransaction({
+        date,
+        type: 'borrowed_repayment',
+        amount: parsedAmount,
+        accountId: effectiveAccountId,
+        lenderName: targetPerson,
+        ...(trimmedTid ? { tid: trimmedTid, referenceDoc: trimmedTid } : {}),
+        notes: trimmedNotes || `Returned borrowed money to ${targetPerson}`,
+      });
+      if (!res.success) {
+        setErrorMessage(res.error || 'Failed to record repayment.');
+        return;
+      }
+      setSuccessMessage(
+        `Recorded return of ${formatIndianCurrency(parsedAmount)} to ${targetPerson} on ${date}`
+      );
+      setTimeout(() => {
+        closeQuickEntry();
+        resetFormState();
+      }, 750);
     }
   };
 
@@ -381,11 +475,17 @@ export const QuickEntryModal: React.FC = () => {
               {activeMode === 'investment' && 'Create New Investment'}
               {activeMode === 'investment_return' && 'Record Investment Return (Split)'}
               {activeMode === 'transfer' && 'Transfer Between Accounts'}
+              {activeMode === 'borrowed' && 'Borrow Money (Loan Inflow)'}
+              {activeMode === 'borrowed_repayment' && 'Repay Borrowed Money (Debt Return)'}
               {!activeMode && 'Quick Transaction Entry'}
             </h2>
             <p className="text-xs text-zinc-400 mt-0.5">
               {!activeMode
                 ? 'Select the transaction type to record'
+                : activeMode === 'borrowed'
+                ? 'Record borrowed funds with lender person, tenure, and interest rate'
+                : activeMode === 'borrowed_repayment'
+                ? 'Return borrowed money to lender person with live balance synchronization'
                 : 'Customizable date, TID, and instant balance synchronization'}
             </p>
           </div>
@@ -420,6 +520,7 @@ export const QuickEntryModal: React.FC = () => {
           {/* Primary Transaction Mode Selection */}
           {!activeMode && (
             <div className="space-y-2.5">
+              {/* 1. Earnings */}
               <button
                 onClick={() => handleSelectMode('income')}
                 className="w-full p-3.5 rounded-xl bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800 hover:border-emerald-500/40 flex items-center justify-between text-left transition-all cursor-pointer group"
@@ -440,6 +541,7 @@ export const QuickEntryModal: React.FC = () => {
                 <ArrowDownLeft className="w-5 h-5 text-zinc-400 group-hover:text-emerald-400 transition-colors" />
               </button>
 
+              {/* 2. Expenses */}
               <button
                 onClick={() => handleSelectMode('expense')}
                 className="w-full p-3.5 rounded-xl bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800 hover:border-rose-500/40 flex items-center justify-between text-left transition-all cursor-pointer group"
@@ -460,6 +562,7 @@ export const QuickEntryModal: React.FC = () => {
                 <CreditCard className="w-5 h-5 text-zinc-400 group-hover:text-rose-400 transition-colors" />
               </button>
 
+              {/* 3. New Investment */}
               <button
                 onClick={() => handleSelectMode('investment')}
                 className="w-full p-3.5 rounded-xl bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800 hover:border-blue-500/40 flex items-center justify-between text-left transition-all cursor-pointer group"
@@ -480,6 +583,7 @@ export const QuickEntryModal: React.FC = () => {
                 <Plus className="w-5 h-5 text-zinc-400 group-hover:text-blue-400 transition-colors" />
               </button>
 
+              {/* 4. Account Transfer */}
               <button
                 onClick={() => handleSelectMode('transfer')}
                 className="w-full p-3.5 rounded-xl bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800 hover:border-amber-500/40 flex items-center justify-between text-left transition-all cursor-pointer group"
@@ -500,7 +604,55 @@ export const QuickEntryModal: React.FC = () => {
                 <ArrowRightLeft className="w-5 h-5 text-zinc-400 group-hover:text-amber-400 transition-colors" />
               </button>
 
-              {/* Repayment split option */}
+              {/* 5. Borrowed Money (Loan Received) */}
+              <button
+                onClick={() => handleSelectMode('borrowed')}
+                className="w-full p-3.5 rounded-xl bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800 hover:border-purple-500/40 flex items-center justify-between text-left transition-all cursor-pointer group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <HandCoins className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white group-hover:text-purple-400 transition-colors flex items-center gap-2">
+                      <span>5. Borrow Money (Loan Received)</span>
+                      <span className="text-[10px] px-1.5 py-0.2 bg-purple-500/20 text-purple-300 rounded font-normal">Inflow</span>
+                    </h3>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      Borrowed from a person/lender (deposited to bank or cash)
+                    </p>
+                  </div>
+                </div>
+                <ArrowDownRight className="w-5 h-5 text-zinc-400 group-hover:text-purple-400 transition-colors" />
+              </button>
+
+              {/* 6. Repay Borrowed Money (Debt Return) */}
+              <button
+                onClick={() => handleSelectMode('borrowed_repayment')}
+                className="w-full p-3.5 rounded-xl bg-zinc-950/80 hover:bg-zinc-800/80 border border-zinc-800 hover:border-amber-500/40 flex items-center justify-between text-left transition-all cursor-pointer group"
+              >
+                <div className="flex items-center gap-3.5">
+                  <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <RotateCcw className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-white group-hover:text-amber-400 transition-colors flex items-center gap-2">
+                      <span>6. Repay Borrowed Money (Debt Return)</span>
+                      {summary.totalBorrowedOutstanding > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 rounded font-bold font-mono">
+                          {formatIndianCurrency(summary.totalBorrowedOutstanding)} due
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-zinc-400 mt-0.5">
+                      Return money to lender person (reduces your debt)
+                    </p>
+                  </div>
+                </div>
+                <ArrowUpRight className="w-5 h-5 text-zinc-400 group-hover:text-amber-400 transition-colors" />
+              </button>
+
+              {/* 7. Investment Return Split */}
               <div className="pt-1.5">
                 <button
                   onClick={() => handleSelectMode('investment_return')}
@@ -509,7 +661,7 @@ export const QuickEntryModal: React.FC = () => {
                   <div className="flex items-center gap-3">
                     <RotateCcw className="w-4 h-4 text-emerald-400" />
                     <div>
-                      <p className="text-xs font-semibold text-zinc-200">Record Investment Return</p>
+                      <p className="text-xs font-semibold text-zinc-200">7. Record Investment Return</p>
                       <p className="text-[11px] text-zinc-400">Split principal repayment from interest/profit received</p>
                     </div>
                   </div>
@@ -916,6 +1068,220 @@ export const QuickEntryModal: React.FC = () => {
                     </div>
                   </div>
                 </>
+              )}
+
+              {/* BORROWED MONEY SPECIFIC (Borrow from person/lender) */}
+              {activeMode === 'borrowed' && (
+                <div className="space-y-3 p-3.5 bg-zinc-950/80 border border-purple-500/30 rounded-xl">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-purple-300">
+                    <HandCoins className="w-4 h-4 text-purple-400" />
+                    <span>Borrow Money (Loan Inflow)</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1">
+                      Which Person / Lender Through? <span className="text-rose-400">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={lenderName}
+                      onChange={(e) => setLenderName(e.target.value)}
+                      placeholder="e.g. Ramesh, Uncle Kumar, SBI Bank, Friend Suresh"
+                      required
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 focus:border-purple-500 focus:outline-none"
+                    />
+                    {/* Previous lenders chips for quick 1-tap select */}
+                    {summary.lendersSummary && summary.lendersSummary.length > 0 && (
+                      <div className="flex items-center gap-1.5 flex-wrap mt-1.5">
+                        <span className="text-[10px] text-zinc-500">Recent lenders:</span>
+                        {summary.lendersSummary.slice(0, 4).map((l) => (
+                          <button
+                            key={l.lenderName}
+                            type="button"
+                            onClick={() => setLenderName(l.lenderName)}
+                            className="px-2 py-0.5 rounded text-[10px] bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-purple-300 cursor-pointer"
+                          >
+                            {l.lenderName}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1">
+                      Receiving Account (Where borrowed money was deposited)
+                    </label>
+                    <select
+                      value={accountId}
+                      onChange={(e) => setAccountId(e.target.value)}
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 text-xs text-zinc-100 focus:border-purple-500 focus:outline-none"
+                    >
+                      {accounts.filter((a) => a.isActive).map((acc) => (
+                        <option key={acc.id} value={acc.id} className="bg-zinc-900 text-zinc-100">
+                          {acc.name} ({acc.type === 'bank' ? 'Bank Account' : 'Cash in Hand'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-300 mb-1 flex items-center gap-1">
+                        <Clock className="w-3 h-3 text-purple-400" />
+                        <span>Duration / Tenure</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={borrowedDuration}
+                        onChange={(e) => setBorrowedDuration(e.target.value)}
+                        placeholder="e.g. 6 Months, 1 Year"
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2 text-xs text-zinc-100 focus:border-purple-500 focus:outline-none"
+                      />
+                      <div className="flex gap-1 mt-1">
+                        {['3 Months', '6 Months', '1 Year'].map((chip) => (
+                          <button
+                            key={chip}
+                            type="button"
+                            onClick={() => setBorrowedDuration(chip)}
+                            className="text-[10px] text-zinc-400 hover:text-white px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded cursor-pointer"
+                          >
+                            {chip}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-300 mb-1 flex items-center gap-1">
+                        <BadgePercent className="w-3 h-3 text-purple-400" />
+                        <span>Interest Rate</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={borrowedInterestRate}
+                        onChange={(e) => setBorrowedInterestRate(e.target.value)}
+                        placeholder="e.g. 0%, 2% / mo, 12% p.a."
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2 text-xs text-zinc-100 focus:border-purple-500 focus:outline-none"
+                      />
+                      <div className="flex gap-1 mt-1">
+                        {['0% Free', '1% / mo', '2% / mo'].map((chip) => (
+                          <button
+                            key={chip}
+                            type="button"
+                            onClick={() => setBorrowedInterestRate(chip)}
+                            className="text-[10px] text-zinc-400 hover:text-white px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded cursor-pointer"
+                          >
+                            {chip}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* REPAY BORROWED MONEY SPECIFIC (Debt Return) */}
+              {activeMode === 'borrowed_repayment' && (
+                <div className="space-y-3 p-3.5 bg-zinc-950/80 border border-amber-500/30 rounded-xl">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-amber-300">
+                    <RotateCcw className="w-4 h-4 text-amber-400" />
+                    <span>Return Borrowed Money (Debt Repayment)</span>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1">
+                      Which Person / Lender Are You Repaying? <span className="text-rose-400">*</span>
+                    </label>
+
+                    {summary.lendersSummary && summary.lendersSummary.length > 0 ? (
+                      <select
+                        value={selectedRepayLender}
+                        onChange={(e) => {
+                          const name = e.target.value;
+                          setSelectedRepayLender(name);
+                          const lender = summary.lendersSummary.find((l) => l.lenderName === name);
+                          if (lender && lender.outstanding > 0) {
+                            setAmount(lender.outstanding.toString());
+                          }
+                        }}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 text-xs text-zinc-100 focus:border-amber-500 focus:outline-none"
+                      >
+                        <option value="">-- Select Person Borrowed From --</option>
+                        {summary.lendersSummary.map((l) => (
+                          <option key={l.lenderName} value={l.lenderName} className="bg-zinc-900">
+                            {l.lenderName} — {l.outstanding > 0 ? `₹${l.outstanding.toLocaleString('en-IN')} Due` : 'Fully Repaid'}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="text"
+                        value={selectedRepayLender}
+                        onChange={(e) => setSelectedRepayLender(e.target.value)}
+                        placeholder="Enter person's name (e.g. Ramesh)"
+                        required
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-3 py-2 text-xs text-zinc-100 focus:border-amber-500 focus:outline-none"
+                      />
+                    )}
+                  </div>
+
+                  {/* Lender summary card */}
+                  {currentLenderInfo && (
+                    <div className="p-3 rounded-xl bg-zinc-900/90 border border-zinc-800 space-y-1.5 text-xs">
+                      <div className="flex justify-between items-center text-zinc-400">
+                        <span>Total Borrowed:</span>
+                        <span className="font-mono text-zinc-200">{formatIndianCurrency(currentLenderInfo.totalBorrowed)}</span>
+                      </div>
+                      <div className="flex justify-between items-center text-zinc-400">
+                        <span>Already Repaid:</span>
+                        <span className="font-mono text-emerald-400">{formatIndianCurrency(currentLenderInfo.totalRepaid)}</span>
+                      </div>
+                      <div className="border-t border-zinc-800 pt-1 flex justify-between items-center font-bold">
+                        <span className="text-amber-400">Remaining Balance:</span>
+                        <span className="font-mono text-amber-300">{formatIndianCurrency(currentLenderInfo.outstanding)}</span>
+                      </div>
+
+                      {currentLenderInfo.outstanding > 0 && (
+                        <div className="pt-1 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setAmount(currentLenderInfo.outstanding.toString())}
+                            className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 rounded-lg text-[11px] font-semibold cursor-pointer"
+                          >
+                            Pay Full ({formatIndianCurrency(currentLenderInfo.outstanding)})
+                          </button>
+                          {currentLenderInfo.outstanding > 100 && (
+                            <button
+                              type="button"
+                              onClick={() => setAmount(Math.round(currentLenderInfo.outstanding / 2).toString())}
+                              className="px-2.5 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-[11px] cursor-pointer"
+                            >
+                              Pay Half ({formatIndianCurrency(Math.round(currentLenderInfo.outstanding / 2))})
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-300 mb-1">
+                      Payment Account (Paid from Bank or Cash)
+                    </label>
+                    <select
+                      value={accountId}
+                      onChange={(e) => setAccountId(e.target.value)}
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 text-xs text-zinc-100 focus:border-amber-500 focus:outline-none"
+                    >
+                      {accounts.filter((a) => a.isActive).map((acc) => (
+                        <option key={acc.id} value={acc.id} className="bg-zinc-900 text-zinc-100">
+                          {acc.name} ({acc.type === 'bank' ? 'Bank Account' : 'Cash in Hand'})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
               )}
 
               {/* TID / Reference & Business Fields */}

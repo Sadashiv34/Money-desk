@@ -68,7 +68,9 @@ export type TransactionType =
   | 'investment_return' // Principal repayment + interest/profit split
   | 'investment_expense' // Direct expense attributed to an asset (e.g., bike maintenance)
   | 'transfer_internal' // Between two tracked accounts (Bank <-> Bank, Bank <-> Cash)
-  | 'transfer_external'; // External transfer / Owner withdrawal to untracked personal account
+  | 'transfer_external' // External transfer / Owner withdrawal to untracked personal account
+  | 'borrowed_inflow' // Money borrowed from a person/lender (inflow to bank or cash)
+  | 'borrowed_repayment'; // Repayment of borrowed money back to lender (outflow from bank or cash)
 
 export interface Transaction {
   id: string;
@@ -86,8 +88,22 @@ export interface Transaction {
   referenceDoc?: string;
   tid?: string; // Transaction ID / UPI / Cheque / IMPS Reference #
   associatedBusiness?: string;
+  lenderName?: string; // Person/Lender from whom money was borrowed or to whom repaid
+  borrowedDuration?: string; // Duration (e.g. "6 months", "1 year")
+  borrowedInterestRate?: string; // Interest rate (e.g. "0%", "12% p.a.")
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LenderDebtSummary {
+  lenderName: string;
+  totalBorrowed: number;
+  totalRepaid: number;
+  outstanding: number;
+  lastDate: string;
+  interestRate?: string;
+  duration?: string;
+  receivingAccountId?: string;
 }
 
 export interface InvestmentMetrics {
@@ -118,6 +134,11 @@ export interface DashboardSummary {
   netOperatingCashFlow: number;
   accountsBreakdown: { account: Account; balance: number }[];
   activeInvestmentsCount: number;
+  totalBorrowedOutstanding: number;
+  totalBorrowedActiveCount: number;
+  periodBorrowedReceived: number;
+  periodBorrowedRepaid: number;
+  lendersSummary: LenderDebtSummary[];
 }
 
 export type PeriodType = 
