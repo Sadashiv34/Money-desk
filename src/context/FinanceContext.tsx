@@ -30,7 +30,8 @@ import {
   googleProvider,
   handleFirestoreError,
   OperationType,
-  testConnection
+  testConnection,
+  sanitizeForFirestore
 } from '../firebase/firebase';
 import {
   onAuthStateChanged,
@@ -449,6 +450,34 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
   }, [currentUser]);
 
+  // Helper: Format Firebase Auth errors into clear, friendly guidance
+  function formatAuthError(err: unknown): string {
+    if (err instanceof Error) {
+      const msg = err.message;
+      if (msg.includes('auth/email-already-in-use')) {
+        return 'This email or phone number is already registered. Please sign in instead.';
+      }
+      if (msg.includes('auth/invalid-email')) {
+        return 'Please enter a valid email address (e.g. user@example.com) or 10-digit phone number.';
+      }
+      if (msg.includes('auth/weak-password')) {
+        return 'Password must be at least 6 characters long.';
+      }
+      if (
+        msg.includes('auth/user-not-found') ||
+        msg.includes('auth/wrong-password') ||
+        msg.includes('auth/invalid-credential')
+      ) {
+        return 'Incorrect credentials. Please verify your phone/email and password.';
+      }
+      if (msg.includes('auth/too-many-requests')) {
+        return 'Too many attempts. Please wait a moment and try again.';
+      }
+      return msg.replace(/^Firebase:\s*/, '').replace(/\(auth\/[^)]+\)\.?/, '').trim();
+    }
+    return String(err);
+  }
+
   // Auth Actions: Email / Phone Sign-Up, Sign-In, Forgot Password, Google
   const signUpWithEmailOrPhone = async (identifier: string, pass: string, name?: string) => {
     try {
@@ -462,7 +491,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error('Sign-up error:', err);
       return { 
         success: false, 
-        error: err instanceof Error ? err.message.replace('Firebase: ', '') : String(err) 
+        error: formatAuthError(err)
       };
     }
   };
@@ -476,7 +505,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error('Sign-in error:', err);
       return { 
         success: false, 
-        error: err instanceof Error ? err.message.replace('Firebase: ', '') : String(err) 
+        error: formatAuthError(err)
       };
     }
   };
@@ -496,7 +525,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       console.error('Password reset error:', err);
       return { 
         success: false, 
-        error: err instanceof Error ? err.message.replace('Firebase: ', '') : String(err) 
+        error: formatAuthError(err)
       };
     }
   };
@@ -542,31 +571,46 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
       // User Isolated Accounts
       for (const acc of accounts) {
-        batch.set(doc(db, 'users', uid, 'accounts', acc.id), { ...acc, userId: uid, updatedAt: new Date().toISOString() });
+        batch.set(
+          doc(db, 'users', uid, 'accounts', acc.id),
+          sanitizeForFirestore({ ...acc, userId: uid, updatedAt: new Date().toISOString() })
+        );
         count++;
       }
 
       // User Isolated Sources
       for (const src of incomeSources) {
-        batch.set(doc(db, 'users', uid, 'incomeSources', src.id), { ...src, userId: uid, updatedAt: new Date().toISOString() });
+        batch.set(
+          doc(db, 'users', uid, 'incomeSources', src.id),
+          sanitizeForFirestore({ ...src, userId: uid, updatedAt: new Date().toISOString() })
+        );
         count++;
       }
 
       // User Isolated Categories
       for (const cat of expenseCategories) {
-        batch.set(doc(db, 'users', uid, 'expenseCategories', cat.id), { ...cat, userId: uid, updatedAt: new Date().toISOString() });
+        batch.set(
+          doc(db, 'users', uid, 'expenseCategories', cat.id),
+          sanitizeForFirestore({ ...cat, userId: uid, updatedAt: new Date().toISOString() })
+        );
         count++;
       }
 
       // User Isolated Investments
       for (const inv of investments) {
-        batch.set(doc(db, 'users', uid, 'investments', inv.id), { ...inv, userId: uid, updatedAt: new Date().toISOString() });
+        batch.set(
+          doc(db, 'users', uid, 'investments', inv.id),
+          sanitizeForFirestore({ ...inv, userId: uid, updatedAt: new Date().toISOString() })
+        );
         count++;
       }
 
       // User Isolated Transactions
       for (const tx of transactions) {
-        batch.set(doc(db, 'users', uid, 'transactions', tx.id), { ...tx, userId: uid, updatedAt: new Date().toISOString() });
+        batch.set(
+          doc(db, 'users', uid, 'transactions', tx.id),
+          sanitizeForFirestore({ ...tx, userId: uid, updatedAt: new Date().toISOString() })
+        );
         count++;
       }
 
@@ -611,20 +655,47 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Transaction CRUD
   const addTransaction = (
-    txData: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>
+    txDataInput: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>
   ): { success: boolean; error?: string; txId?: string } => {
+    let txData = { ...txDataInput };
     if (!txData.amount || txData.amount <= 0) {
       return { success: false, error: 'Transaction amount must be greater than zero.' };
     }
 
-    const account = accounts.find((a) => a.id === txData.accountId);
+    let account = accounts.find((a) => a.id === txData.accountId);
+    if (!account && accounts.length > 0) {
+      account = accounts[0];
+      txData.accountId = account.id;
+    }
     if (!account) {
-      return { success: false, error: 'Invalid payment or receipt account selected.' };
+      const fallbackAcc: Account = {
+        id: `acc-main-${Date.now().toString(36)}`,
+        name: 'Primary Bank Account',
+        type: 'bank',
+        openingBalance: 0,
+        openingDate: new Date().toISOString().split('T')[0],
+        isActive: true,
+      };
+      setAccounts((prev) => [fallbackAcc, ...prev]);
+      account = fallbackAcc;
+      txData.accountId = fallbackAcc.id;
+    }
+
+    if (txData.type === 'income' && !txData.sourceId && incomeSources.length > 0) {
+      txData.sourceId = incomeSources[0].id;
+    }
+
+    if (txData.type === 'expense' && !txData.categoryId && expenseCategories.length > 0) {
+      txData.categoryId = expenseCategories[0].id;
     }
 
     if (txData.type === 'investment_return') {
       if (!txData.investmentId) {
-        return { success: false, error: 'Please select the associated investment.' };
+        if (investments.length > 0) {
+          txData.investmentId = investments[0].id;
+        } else {
+          return { success: false, error: 'Please select the associated investment.' };
+        }
       }
       const inv = investments.find((i) => i.id === txData.investmentId);
       if (!inv) {
@@ -652,7 +723,12 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     if (txData.type === 'transfer_internal') {
       if (!txData.toAccountId) {
-        return { success: false, error: 'Please select a destination account for the internal transfer.' };
+        const otherAcc = accounts.find((a) => a.id !== txData.accountId);
+        if (otherAcc) {
+          txData.toAccountId = otherAcc.id;
+        } else {
+          return { success: false, error: 'Please select a destination account for the internal transfer.' };
+        }
       }
       if (txData.accountId === txData.toAccountId) {
         return { success: false, error: 'Source and destination accounts cannot be identical.' };
@@ -669,19 +745,23 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     setTransactions((prev) => [newTx, ...prev]);
 
-    // Direct Cloud Write to root transactions collection
-    setDoc(doc(db, 'transactions', newTx.id), {
+    // Direct Cloud Write to root transactions collection (sanitized of any undefined properties)
+    const rootPayload = sanitizeForFirestore({
       ...newTx,
       userId: currentUser ? currentUser.uid : 'guest'
-    }).catch((err) => handleFirestoreError(err, OperationType.CREATE, `transactions/${newTx.id}`));
+    });
+    setDoc(doc(db, 'transactions', newTx.id), rootPayload)
+      .catch((err) => handleFirestoreError(err, OperationType.CREATE, `transactions/${newTx.id}`));
 
     if (currentUser) {
       const uid = currentUser.uid;
       const path = `users/${uid}/transactions/${newTx.id}`;
-      setDoc(doc(db, 'users', uid, 'transactions', newTx.id), {
+      const userPayload = sanitizeForFirestore({
         ...newTx,
         userId: uid
-      }).catch((err) => handleFirestoreError(err, OperationType.CREATE, path));
+      });
+      setDoc(doc(db, 'users', uid, 'transactions', newTx.id), userPayload)
+        .catch((err) => handleFirestoreError(err, OperationType.CREATE, path));
     }
 
     return { success: true, txId: newTx.id };
@@ -728,16 +808,19 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setTransactions((prev) => prev.map((t) => (t.id === id ? updatedWithTimestamp : t)));
 
     // Direct Cloud update to root transactions collection
-    setDoc(doc(db, 'transactions', id), updatedWithTimestamp, { merge: true })
+    const cloudUpdateRoot = sanitizeForFirestore(updatedWithTimestamp);
+    setDoc(doc(db, 'transactions', id), cloudUpdateRoot, { merge: true })
       .catch((err) => handleFirestoreError(err, OperationType.UPDATE, `transactions/${id}`));
 
     if (currentUser) {
       const uid = currentUser.uid;
       const path = `users/${uid}/transactions/${id}`;
-      setDoc(doc(db, 'users', uid, 'transactions', id), {
+      const cloudUpdateUser = sanitizeForFirestore({
         ...updatedWithTimestamp,
         userId: uid
-      }, { merge: true }).catch((err) => handleFirestoreError(err, OperationType.UPDATE, path));
+      });
+      setDoc(doc(db, 'users', uid, 'transactions', id), cloudUpdateUser, { merge: true })
+        .catch((err) => handleFirestoreError(err, OperationType.UPDATE, path));
     }
 
     return { success: true };
@@ -871,18 +954,24 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setInvestments((prev) => [newInvestment, ...prev]);
 
     // Direct Cloud Write to root investments collection
-    setDoc(doc(db, 'investments', newInvId), {
-      ...newInvestment,
-      userId: currentUser ? currentUser.uid : 'guest'
-    }).catch((err) => handleFirestoreError(err, OperationType.CREATE, `investments/${newInvId}`));
+    setDoc(
+      doc(db, 'investments', newInvId),
+      sanitizeForFirestore({
+        ...newInvestment,
+        userId: currentUser ? currentUser.uid : 'guest'
+      })
+    ).catch((err) => handleFirestoreError(err, OperationType.CREATE, `investments/${newInvId}`));
 
     if (currentUser) {
       const uid = currentUser.uid;
       const path = `users/${uid}/investments/${newInvId}`;
-      setDoc(doc(db, 'users', uid, 'investments', newInvId), {
-        ...newInvestment,
-        userId: uid
-      }).catch((err) => handleFirestoreError(err, OperationType.CREATE, path));
+      setDoc(
+        doc(db, 'users', uid, 'investments', newInvId),
+        sanitizeForFirestore({
+          ...newInvestment,
+          userId: uid
+        })
+      ).catch((err) => handleFirestoreError(err, OperationType.CREATE, path));
     }
 
     // Automatically create the initial capital outflow transaction
@@ -903,17 +992,23 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
       setTransactions((prev) => [contributionTx, ...prev]);
 
       // Direct write to root transactions
-      setDoc(doc(db, 'transactions', contributionTx.id), {
-        ...contributionTx,
-        userId: currentUser ? currentUser.uid : 'guest'
-      }).catch((err) => handleFirestoreError(err, OperationType.CREATE, `transactions/${contributionTx.id}`));
+      setDoc(
+        doc(db, 'transactions', contributionTx.id),
+        sanitizeForFirestore({
+          ...contributionTx,
+          userId: currentUser ? currentUser.uid : 'guest'
+        })
+      ).catch((err) => handleFirestoreError(err, OperationType.CREATE, `transactions/${contributionTx.id}`));
 
       if (currentUser) {
         const uid = currentUser.uid;
-        setDoc(doc(db, 'users', uid, 'transactions', contributionTx.id), {
-          ...contributionTx,
-          userId: uid
-        }).catch((err) => handleFirestoreError(err, OperationType.CREATE, `users/${uid}/transactions/${contributionTx.id}`));
+        setDoc(
+          doc(db, 'users', uid, 'transactions', contributionTx.id),
+          sanitizeForFirestore({
+            ...contributionTx,
+            userId: uid
+          })
+        ).catch((err) => handleFirestoreError(err, OperationType.CREATE, `users/${uid}/transactions/${contributionTx.id}`));
       }
     }
 
@@ -924,15 +1019,19 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setInvestments((prev) => prev.map((inv) => (inv.id === id ? { ...inv, ...updates } : inv)));
 
     // Direct update to root investments
-    setDoc(doc(db, 'investments', id), updates, { merge: true })
+    setDoc(doc(db, 'investments', id), sanitizeForFirestore(updates), { merge: true })
       .catch((err) => handleFirestoreError(err, OperationType.UPDATE, `investments/${id}`));
 
     if (currentUser) {
       const uid = currentUser.uid;
-      setDoc(doc(db, 'users', uid, 'investments', id), {
-        ...updates,
-        userId: uid
-      }, { merge: true }).catch((err) => handleFirestoreError(err, OperationType.UPDATE, `users/${uid}/investments/${id}`));
+      setDoc(
+        doc(db, 'users', uid, 'investments', id),
+        sanitizeForFirestore({
+          ...updates,
+          userId: uid
+        }),
+        { merge: true }
+      ).catch((err) => handleFirestoreError(err, OperationType.UPDATE, `users/${uid}/investments/${id}`));
     }
 
     return { success: true };
@@ -948,17 +1047,23 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setIncomeSources((prev) => [...prev, newSrc]);
 
     // Direct write to root incomeSources
-    setDoc(doc(db, 'incomeSources', newSrc.id), {
-      ...newSrc,
-      userId: currentUser ? currentUser.uid : 'guest'
-    }).catch((err) => handleFirestoreError(err, OperationType.CREATE, `incomeSources/${newSrc.id}`));
+    setDoc(
+      doc(db, 'incomeSources', newSrc.id),
+      sanitizeForFirestore({
+        ...newSrc,
+        userId: currentUser ? currentUser.uid : 'guest'
+      })
+    ).catch((err) => handleFirestoreError(err, OperationType.CREATE, `incomeSources/${newSrc.id}`));
 
     if (currentUser) {
       const uid = currentUser.uid;
-      setDoc(doc(db, 'users', uid, 'incomeSources', newSrc.id), {
-        ...newSrc,
-        userId: uid
-      }).catch((err) => handleFirestoreError(err, OperationType.CREATE, `users/${uid}/incomeSources/${newSrc.id}`));
+      setDoc(
+        doc(db, 'users', uid, 'incomeSources', newSrc.id),
+        sanitizeForFirestore({
+          ...newSrc,
+          userId: uid
+        })
+      ).catch((err) => handleFirestoreError(err, OperationType.CREATE, `users/${uid}/incomeSources/${newSrc.id}`));
     }
 
     return newSrc;
@@ -968,15 +1073,19 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setIncomeSources((prev) => prev.map((s) => (s.id === id ? { ...s, ...updates } : s)));
 
     // Direct update to root incomeSources
-    setDoc(doc(db, 'incomeSources', id), updates, { merge: true })
+    setDoc(doc(db, 'incomeSources', id), sanitizeForFirestore(updates), { merge: true })
       .catch((err) => handleFirestoreError(err, OperationType.UPDATE, `incomeSources/${id}`));
 
     if (currentUser) {
       const uid = currentUser.uid;
-      setDoc(doc(db, 'users', uid, 'incomeSources', id), {
-        ...updates,
-        userId: uid
-      }, { merge: true }).catch((err) => handleFirestoreError(err, OperationType.UPDATE, `users/${uid}/incomeSources/${id}`));
+      setDoc(
+        doc(db, 'users', uid, 'incomeSources', id),
+        sanitizeForFirestore({
+          ...updates,
+          userId: uid
+        }),
+        { merge: true }
+      ).catch((err) => handleFirestoreError(err, OperationType.UPDATE, `users/${uid}/incomeSources/${id}`));
     }
   };
 
@@ -990,17 +1099,23 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setExpenseCategories((prev) => [...prev, newCat]);
 
     // Direct write to root expenseCategories
-    setDoc(doc(db, 'expenseCategories', newCat.id), {
-      ...newCat,
-      userId: currentUser ? currentUser.uid : 'guest'
-    }).catch((err) => handleFirestoreError(err, OperationType.CREATE, `expenseCategories/${newCat.id}`));
+    setDoc(
+      doc(db, 'expenseCategories', newCat.id),
+      sanitizeForFirestore({
+        ...newCat,
+        userId: currentUser ? currentUser.uid : 'guest'
+      })
+    ).catch((err) => handleFirestoreError(err, OperationType.CREATE, `expenseCategories/${newCat.id}`));
 
     if (currentUser) {
       const uid = currentUser.uid;
-      setDoc(doc(db, 'users', uid, 'expenseCategories', newCat.id), {
-        ...newCat,
-        userId: uid
-      }).catch((err) => handleFirestoreError(err, OperationType.CREATE, `users/${uid}/expenseCategories/${newCat.id}`));
+      setDoc(
+        doc(db, 'users', uid, 'expenseCategories', newCat.id),
+        sanitizeForFirestore({
+          ...newCat,
+          userId: uid
+        })
+      ).catch((err) => handleFirestoreError(err, OperationType.CREATE, `users/${uid}/expenseCategories/${newCat.id}`));
     }
 
     return newCat;
@@ -1010,15 +1125,19 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setExpenseCategories((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
 
     // Direct update to root expenseCategories
-    setDoc(doc(db, 'expenseCategories', id), updates, { merge: true })
+    setDoc(doc(db, 'expenseCategories', id), sanitizeForFirestore(updates), { merge: true })
       .catch((err) => handleFirestoreError(err, OperationType.UPDATE, `expenseCategories/${id}`));
 
     if (currentUser) {
       const uid = currentUser.uid;
-      setDoc(doc(db, 'users', uid, 'expenseCategories', id), {
-        ...updates,
-        userId: uid
-      }, { merge: true }).catch((err) => handleFirestoreError(err, OperationType.UPDATE, `users/${uid}/expenseCategories/${id}`));
+      setDoc(
+        doc(db, 'users', uid, 'expenseCategories', id),
+        sanitizeForFirestore({
+          ...updates,
+          userId: uid
+        }),
+        { merge: true }
+      ).catch((err) => handleFirestoreError(err, OperationType.UPDATE, `users/${uid}/expenseCategories/${id}`));
     }
   };
 
@@ -1032,17 +1151,23 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setAccounts((prev) => [...prev, newAcc]);
 
     // Direct write to root accounts
-    setDoc(doc(db, 'accounts', newAcc.id), {
-      ...newAcc,
-      userId: currentUser ? currentUser.uid : 'guest'
-    }).catch((err) => handleFirestoreError(err, OperationType.CREATE, `accounts/${newAcc.id}`));
+    setDoc(
+      doc(db, 'accounts', newAcc.id),
+      sanitizeForFirestore({
+        ...newAcc,
+        userId: currentUser ? currentUser.uid : 'guest'
+      })
+    ).catch((err) => handleFirestoreError(err, OperationType.CREATE, `accounts/${newAcc.id}`));
 
     if (currentUser) {
       const uid = currentUser.uid;
-      setDoc(doc(db, 'users', uid, 'accounts', newAcc.id), {
-        ...newAcc,
-        userId: uid
-      }).catch((err) => handleFirestoreError(err, OperationType.CREATE, `users/${uid}/accounts/${newAcc.id}`));
+      setDoc(
+        doc(db, 'users', uid, 'accounts', newAcc.id),
+        sanitizeForFirestore({
+          ...newAcc,
+          userId: uid
+        })
+      ).catch((err) => handleFirestoreError(err, OperationType.CREATE, `users/${uid}/accounts/${newAcc.id}`));
     }
 
     return newAcc;
@@ -1052,15 +1177,19 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setAccounts((prev) => prev.map((a) => (a.id === id ? { ...a, ...updates } : a)));
 
     // Direct update to root accounts
-    setDoc(doc(db, 'accounts', id), updates, { merge: true })
+    setDoc(doc(db, 'accounts', id), sanitizeForFirestore(updates), { merge: true })
       .catch((err) => handleFirestoreError(err, OperationType.UPDATE, `accounts/${id}`));
 
     if (currentUser) {
       const uid = currentUser.uid;
-      setDoc(doc(db, 'users', uid, 'accounts', id), {
-        ...updates,
-        userId: uid
-      }, { merge: true }).catch((err) => handleFirestoreError(err, OperationType.UPDATE, `users/${uid}/accounts/${id}`));
+      setDoc(
+        doc(db, 'users', uid, 'accounts', id),
+        sanitizeForFirestore({
+          ...updates,
+          userId: uid
+        }),
+        { merge: true }
+      ).catch((err) => handleFirestoreError(err, OperationType.UPDATE, `users/${uid}/accounts/${id}`));
     }
   };
 

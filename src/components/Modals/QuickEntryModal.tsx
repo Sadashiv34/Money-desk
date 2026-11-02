@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useFinance } from '../../context/FinanceContext';
 import { InvestmentType } from '../../types/financial';
 import { 
@@ -49,6 +49,38 @@ export const QuickEntryModal: React.FC = () => {
   const [investmentId, setInvestmentId] = useState(() => investments[0]?.id || '');
   const [notes, setNotes] = useState('');
   const [associatedBusiness, setAssociatedBusiness] = useState('');
+
+  // Keep state synchronized with loaded accounts / categories / investments
+  useEffect(() => {
+    if ((!accountId || !accounts.some((a) => a.id === accountId)) && accounts.length > 0) {
+      setAccountId(accounts[0].id);
+    }
+  }, [accounts, accountId]);
+
+  useEffect(() => {
+    if ((!toAccountId || toAccountId === accountId || !accounts.some((a) => a.id === toAccountId)) && accounts.length > 1) {
+      const other = accounts.find((a) => a.id !== accountId);
+      if (other) setToAccountId(other.id);
+    }
+  }, [accounts, accountId, toAccountId]);
+
+  useEffect(() => {
+    if ((!sourceId || !incomeSources.some((s) => s.id === sourceId)) && incomeSources.length > 0) {
+      setSourceId(incomeSources[0].id);
+    }
+  }, [incomeSources, sourceId]);
+
+  useEffect(() => {
+    if ((!categoryId || !expenseCategories.some((c) => c.id === categoryId)) && expenseCategories.length > 0) {
+      setCategoryId(expenseCategories[0].id);
+    }
+  }, [expenseCategories, categoryId]);
+
+  useEffect(() => {
+    if ((!investmentId || !investments.some((i) => i.id === investmentId)) && investments.length > 0) {
+      setInvestmentId(investments[0].id);
+    }
+  }, [investments, investmentId]);
 
   // Repayment split state
   const [principalReturned, setPrincipalReturned] = useState('');
@@ -129,23 +161,34 @@ export const QuickEntryModal: React.FC = () => {
     setErrorMessage(null);
 
     const parsedAmount = parseFloat(amount);
+    const effectiveAccountId = accountId || accounts[0]?.id;
+
+    if (!effectiveAccountId) {
+      setErrorMessage('Please create or select a valid payment/receipt account.');
+      return;
+    }
+
+    const trimmedTid = tid.trim();
+    const trimmedNotes = notes.trim();
 
     if (activeMode === 'income') {
       if (isNaN(parsedAmount) || parsedAmount <= 0) {
         setErrorMessage('Please enter a valid positive earnings amount.');
         return;
       }
-      const selectedSource = incomeSources.find((s) => s.id === sourceId);
+      const effectiveSourceId = sourceId || incomeSources[0]?.id;
+      const selectedSource = incomeSources.find((s) => s.id === effectiveSourceId);
+      const biz = selectedSource?.associatedBusiness || associatedBusiness.trim();
+
       const res = addTransaction({
         date,
         type: 'income',
         amount: parsedAmount,
-        accountId,
-        sourceId,
-        tid: tid.trim() || undefined,
-        referenceDoc: tid.trim() || undefined,
-        associatedBusiness: selectedSource?.associatedBusiness || associatedBusiness,
-        notes: notes.trim(),
+        accountId: effectiveAccountId,
+        sourceId: effectiveSourceId,
+        ...(trimmedTid ? { tid: trimmedTid, referenceDoc: trimmedTid } : {}),
+        ...(biz ? { associatedBusiness: biz } : {}),
+        ...(trimmedNotes ? { notes: trimmedNotes } : {}),
       });
       if (!res.success) {
         setErrorMessage(res.error || 'Failed to record earnings.');
@@ -161,16 +204,18 @@ export const QuickEntryModal: React.FC = () => {
         setErrorMessage('Please enter a valid positive expense amount.');
         return;
       }
+      const effectiveCategoryId = categoryId || expenseCategories[0]?.id;
+      const biz = associatedBusiness.trim();
+
       const res = addTransaction({
         date,
         type: 'expense',
         amount: parsedAmount,
-        accountId,
-        categoryId,
-        tid: tid.trim() || undefined,
-        referenceDoc: tid.trim() || undefined,
-        associatedBusiness: associatedBusiness.trim(),
-        notes: notes.trim(),
+        accountId: effectiveAccountId,
+        categoryId: effectiveCategoryId,
+        ...(trimmedTid ? { tid: trimmedTid, referenceDoc: trimmedTid } : {}),
+        ...(biz ? { associatedBusiness: biz } : {}),
+        ...(trimmedNotes ? { notes: trimmedNotes } : {}),
       });
       if (!res.success) {
         setErrorMessage(res.error || 'Failed to record expense.');
@@ -186,7 +231,10 @@ export const QuickEntryModal: React.FC = () => {
         setErrorMessage('Please enter a valid transfer amount.');
         return;
       }
-      if (accountId === toAccountId) {
+      const effectiveToAccountId =
+        toAccountId || accounts.find((a) => a.id !== effectiveAccountId)?.id || accounts[1]?.id;
+
+      if (!effectiveToAccountId || effectiveAccountId === effectiveToAccountId) {
         setErrorMessage('Source account and destination account cannot be the same.');
         return;
       }
@@ -194,11 +242,10 @@ export const QuickEntryModal: React.FC = () => {
         date,
         type: 'transfer_internal',
         amount: parsedAmount,
-        accountId,
-        toAccountId,
-        tid: tid.trim() || undefined,
-        referenceDoc: tid.trim() || undefined,
-        notes: notes.trim() || 'Internal Account Transfer',
+        accountId: effectiveAccountId,
+        toAccountId: effectiveToAccountId,
+        ...(trimmedTid ? { tid: trimmedTid, referenceDoc: trimmedTid } : {}),
+        notes: trimmedNotes || 'Internal Account Transfer',
       });
       if (!res.success) {
         setErrorMessage(res.error || 'Failed to record transfer.');
@@ -214,6 +261,11 @@ export const QuickEntryModal: React.FC = () => {
         setErrorMessage('Please enter the total return amount received.');
         return;
       }
+      const effectiveInvestmentId = investmentId || investments[0]?.id;
+      if (!effectiveInvestmentId) {
+        setErrorMessage('Please select or create an investment first.');
+        return;
+      }
       const pRet = parseFloat(principalReturned) || 0;
       const profit = parseFloat(interestOrProfitReceived) || 0;
 
@@ -221,13 +273,12 @@ export const QuickEntryModal: React.FC = () => {
         date,
         type: 'investment_return',
         amount: parsedAmount,
-        accountId,
-        investmentId,
+        accountId: effectiveAccountId,
+        investmentId: effectiveInvestmentId,
         principalReturned: pRet,
         interestOrProfitReceived: profit,
-        tid: tid.trim() || undefined,
-        referenceDoc: tid.trim() || undefined,
-        notes: notes.trim(),
+        ...(trimmedTid ? { tid: trimmedTid, referenceDoc: trimmedTid } : {}),
+        ...(trimmedNotes ? { notes: trimmedNotes } : {}),
       });
       if (!res.success) {
         setErrorMessage(res.error || 'Failed to record return.');
@@ -249,18 +300,19 @@ export const QuickEntryModal: React.FC = () => {
         setErrorMessage('Please enter initial capital amount.');
         return;
       }
+      const biz = associatedBusiness.trim();
       const res = addInvestment({
         name: invName.trim(),
         type: invType,
         initialPrincipal: parsedAmount,
         date,
-        fundingAccountId: accountId,
+        fundingAccountId: effectiveAccountId,
         purpose: invPurpose.trim(),
-        associatedEntity: associatedBusiness.trim(),
+        ...(biz ? { associatedEntity: biz } : {}),
         expectedReturnMethod: invExpectedMethod.trim() || 'Rental / Cash Flow',
-        expectedRateOrProfit: invExpectedRate.trim(),
-        expectedDuration: invExpectedDuration.trim(),
-        notes: notes.trim(),
+        ...(invExpectedRate.trim() ? { expectedRateOrProfit: invExpectedRate.trim() } : {}),
+        ...(invExpectedDuration.trim() ? { expectedDuration: invExpectedDuration.trim() } : {}),
+        ...(trimmedNotes ? { notes: trimmedNotes } : {}),
         status: 'active',
       });
       if (!res.success) {

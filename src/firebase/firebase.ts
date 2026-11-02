@@ -80,3 +80,27 @@ export async function testConnection(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Recursively strips undefined fields from an object or array before sending to Firestore,
+ * preventing 'Unsupported field value: undefined' errors thrown by the Firestore SDK.
+ */
+export function sanitizeForFirestore<T>(data: T): T {
+  if (data === null || data === undefined) {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeForFirestore(item)) as unknown as T;
+  }
+  if (typeof data === 'object' && !(data instanceof Date)) {
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined) {
+        cleaned[key] = sanitizeForFirestore(value);
+      }
+    }
+    return cleaned as T;
+  }
+  return data;
+}
+
